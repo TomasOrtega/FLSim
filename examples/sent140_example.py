@@ -17,6 +17,9 @@ provide the script get_data.sh for this purpose.
 
     FedBuff + SGDM
     python3 sent140_example.py --config-file configs/sent140_fedbuff_config.json
+
+    FedBuff + SGDM + quantization
+    python3 sent140_example.py --config-file configs/sent140_quantized_fedbuff_config.json
 """
 import itertools
 import json
