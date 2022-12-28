@@ -14,6 +14,8 @@ from typing import Optional
 
 import torch
 from flsim.channels.base_channel import IdentityChannel
+from flsim.channels.message import Message
+from flsim.channels.scalar_quantization_channel import ScalarQuantizationChannel
 from flsim.common.logger import Logger
 from flsim.interfaces.model import IFLModel
 from flsim.privacy.common import PrivacyBudget
@@ -108,6 +110,9 @@ class AsyncAggregator:
 
         self.orig_lr = self.optimizer.param_groups[0]["lr"]
         self._global_model: IFLModel = global_model
+        self._hidden_state: IFLModel = FLModelParamUtils.clone(self._global_model)
+        self._quantization_state: IFLModel = FLModelParamUtils.clone(self._global_model)
+        self.server_to_broadcast_channel = ScalarQuantizationChannel() # TODO -- change for each experiment
         self._reconstructed_grad: IFLModel = FLModelParamUtils.clone(self._global_model)
         # there is no concept of a round in async, hence round reducer is not tied to a round
         self.reducer = instantiate(
@@ -126,6 +131,10 @@ class AsyncAggregator:
     @property
     def global_model(self) -> IFLModel:
         return self._global_model
+    
+    @property
+    def hidden_state(self) -> IFLModel:
+        return self._hidden_state
 
     def set_num_total_users(self, num_total_users: int) -> None:
         self.reducer.set_num_total_users(num_total_users)
@@ -422,6 +431,30 @@ class FedBuffAggregator(AsyncAggregator):
         )
         self._step_with_modified_lr(lr_normalizer=1.0)
         self.num_clients_reported = 0
+        self._update_hidden_state()
+
+    def _update_hidden_state(self):
+        # get the difference between global state and hidden state
+        print('hello world')
+        FLModelParamUtils.subtract_model(
+                minuend=self._global_model.fl_get_module(),
+                subtrahend=self._hidden_state.fl_get_module(),
+                difference=self._quantization_state.fl_get_module(),
+            )
+        
+        # we will use _on_client_before_transmission and _on_server_after_reception to use the FLSim quantization and dequantization code, no point re-implementing good code.
+        message = Message(model=self._quantization_state)
+        quantized_message = self.server_to_broadcast_channel._on_client_before_transmission(message)
+        bytes_broadcasted = self.server_to_broadcast_channel._calc_message_size_server_to_client(quantized_message) # so far, unused, should be reported eventually
+        dequantized_message = self.server_to_broadcast_channel._on_server_after_reception(quantized_message)
+
+        self._quantization_state = dequantized_message.model
+
+        FLModelParamUtils.add_model(
+            model1=self._hidden_state.fl_get_module(),
+            model2=self._quantization_state.fl_get_module(),
+            model_to_save=self._hidden_state.fl_get_module()
+        )
 
     def _collect_client_update(self, update: IFLModel, weight: float) -> None:
         """

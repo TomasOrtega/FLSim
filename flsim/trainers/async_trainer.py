@@ -110,6 +110,12 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         """
         return self.aggregator.global_model
 
+    def hidden_state(self) -> IFLModel:
+        """This function makes it explicit that self.hidden_state() is owned
+        by the aggregator, not by ASyncTrainer
+        """
+        return self.aggregator.hidden_state
+
     @property
     def global_round(self):
         return self.aggregator.global_seqnum + 1  # seqnum is 0 based.
@@ -126,7 +132,7 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         The actual training process doesn't start until on_training_end
         """
         client.training_started(
-            model_seqnum=self.aggregator.global_seqnum, init_model=self.global_model()
+            model_seqnum=self.aggregator.global_seqnum, init_model=self.hidden_state()
         )
 
     def train_and_update_global_model(self, client: AsyncClientDevice) -> None:
