@@ -131,7 +131,6 @@ class AsyncAggregator:
     @property
     def global_model(self) -> IFLModel:
         return self._global_model
-    
     @property
     def hidden_state(self) -> IFLModel:
         return self._hidden_state
@@ -437,11 +436,11 @@ class FedBuffAggregator(AsyncAggregator):
         # get the difference between global state and hidden state
         print('hello world')
         FLModelParamUtils.subtract_model(
-                minuend=self._global_model.fl_get_module(),
-                subtrahend=self._hidden_state.fl_get_module(),
-                difference=self._quantization_state.fl_get_module(),
-            )
-        
+            minuend=self._global_model.fl_get_module(),
+            subtrahend=self._hidden_state.fl_get_module(),
+            difference=self._quantization_state.fl_get_module(),
+        )
+
         # we will use _on_client_before_transmission and _on_server_after_reception to use the FLSim quantization and dequantization code, no point re-implementing good code.
         message = Message(model=self._quantization_state)
         quantized_message = self.server_to_broadcast_channel._on_client_before_transmission(message)
