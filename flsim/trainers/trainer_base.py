@@ -179,7 +179,8 @@ class FLTrainer(abc.ABC):
             # pyre-fixme[16]: `FLTrainer` has no attribute `cfg`.
             self.cfg.report_train_metrics
             and metrics_reporter is not None
-            # and timeline.tick(1.0 / self.cfg.train_metrics_reported_per_epoch)
+            and (timeline.tick(1.0 / self.cfg.train_metrics_reported_per_epoch)
+            or self.cfg.report_train_metrics_after_aggregation)
         ):
             self._print_training_stats(timeline)
             metrics_reporter.report_metrics(
