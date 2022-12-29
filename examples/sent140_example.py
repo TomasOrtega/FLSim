@@ -221,7 +221,7 @@ def main_worker(
 
     trainer.test(
         data_provider=data_provider,
-        metrics_reporter=MetricsReporter([Channel.STDOUT]),
+        metrics_reporter=MetricsReporter([Channel.TENSORBOARD, Channel.STDOUT]),
     )
 
 

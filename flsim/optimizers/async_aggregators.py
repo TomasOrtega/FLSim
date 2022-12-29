@@ -131,6 +131,7 @@ class AsyncAggregator:
     @property
     def global_model(self) -> IFLModel:
         return self._global_model
+
     @property
     def hidden_state(self) -> IFLModel:
         return self._hidden_state
@@ -434,7 +435,6 @@ class FedBuffAggregator(AsyncAggregator):
 
     def _update_hidden_state(self):
         # get the difference between global state and hidden state
-        print('hello world')
         FLModelParamUtils.subtract_model(
             minuend=self._global_model.fl_get_module(),
             subtrahend=self._hidden_state.fl_get_module(),
