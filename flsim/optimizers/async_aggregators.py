@@ -112,7 +112,9 @@ class AsyncAggregator:
         self._global_model: IFLModel = global_model
         self._hidden_state: IFLModel = FLModelParamUtils.clone(self._global_model)
         self._quantization_state: IFLModel = FLModelParamUtils.clone(self._global_model)
-        self.server_to_broadcast_channel = ScalarQuantizationChannel() # TODO -- change for each experiment
+        self.server_to_broadcast_channel = IdentityChannel()
+        if self.cfg.hidden_state:
+            self.server_to_broadcast_channel = ScalarQuantizationChannel() # TODO -- change for each experiment, with the identity channel we recover FedBuff (if there is no client quantization)
         self._reconstructed_grad: IFLModel = FLModelParamUtils.clone(self._global_model)
         # there is no concept of a round in async, hence round reducer is not tied to a round
         self.reducer = instantiate(
@@ -550,6 +552,7 @@ class AsyncAggregatorConfig:
     )
     num_users_per_round: int = 1
     total_number_of_users: int = 10000000000
+    hidden_state: bool = False
 
 
 @dataclass

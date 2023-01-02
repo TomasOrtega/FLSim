@@ -15,6 +15,7 @@
       },
       "channel": {
         "_base_": "base_scalar_quantization_channel",
+        "report_communication_metrics": true,
         "n_bits": 8,
         "quantize_per_tensor": true
       },
@@ -22,7 +23,8 @@
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
         "lr": 0.7,
         "momentum": 0.9,
-        "buffer_size": 10
+        "buffer_size": 10,
+        "hidden_state": true
       },
       "training_event_generator": {
         "_base_": "base_async_training_event_generator",
