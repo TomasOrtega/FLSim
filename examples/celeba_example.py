@@ -16,7 +16,7 @@ Before running this file, you need to download the dataset and partition the dat
     - Download the celebrity faces dataset from the same site. Place the images in a folder
        named `img_align_celeba` in the same folder as above.
 4. Run the pre-processing script:
-    - `./preprocess.sh --sf 1.0 -k 0 -iu 1 -s niid -t 'user' --tf 0.90 --spltseed 1`
+    - `./preprocess.sh --sf 1.0 -k 0 -iu 1 -s niid -t 'user' --tf 0.80 --spltseed 1`
 
 Typical usage example:
     python3 celeba_example.py --config-file configs/celeba_config.json
@@ -111,12 +111,12 @@ def build_data_provider(data_config):
         ]
     )
     train_dataset = CelebaDataset(
-        data_root="leaf/data/celeba/data/train/all_data_0_0_keep_0_train_9.json",
+        data_root="leaf/data/celeba/data/train/all_data_0_0_keep_0_train_8.json",
         image_root="leaf/data/celeba/data/raw/",
         transform=transform,
     )
     test_dataset = CelebaDataset(
-        data_root="leaf/data/celeba/data/test/all_data_0_0_keep_0_test_9.json",
+        data_root="leaf/data/celeba/data/test/all_data_0_0_keep_0_test_8.json",
         transform=transform,
         image_root=train_dataset.image_root,
     )
@@ -237,7 +237,7 @@ def main_worker(
     )
     trainer.test(
         data_provider=data_provider,
-        metrics_reporter=MetricsReporter([Channel.STDOUT]),
+        metrics_reporter=MetricsReporter([Channel.TENSORBOARD, Channel.STDOUT]),
     )
 
 

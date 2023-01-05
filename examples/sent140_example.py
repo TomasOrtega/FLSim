@@ -43,6 +43,7 @@ from flsim.utils.example_utils import (
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import Dataset
+from torchtext.vocab import GloVe
 
 
 class CharLSTM(nn.Module):
@@ -61,6 +62,10 @@ class CharLSTM(nn.Module):
         self.num_classes = num_classes
         self.max_seq_len = max_seq_len
         self.num_embeddings = num_embeddings
+
+        # Glove pre-trained embedding
+        #glove = GloVe(name="6B", dim=embedding_dim) # should be 300
+        #self.embedding = nn.Embedding.from_pretrained(glove.vectors)
 
         self.embedding = nn.Embedding(
             num_embeddings=self.num_embeddings, embedding_dim=embedding_dim
@@ -198,7 +203,7 @@ def main_worker(
         num_classes=model_config.num_classes,
         n_hidden=model_config.n_hidden,
         num_embeddings=num_letters + 1,
-        embedding_dim=100,
+        embedding_dim=300,
         max_seq_len=data_config.max_seq_len,
         dropout_rate=model_config.dropout_rate,
     )
