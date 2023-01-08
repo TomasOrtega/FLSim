@@ -144,14 +144,15 @@ class AsyncTrainingSimulator:
                 # forward time
                 self.current_time = top.next_event_time()
 
-                if top.is_waiting_to_start(): # HERE WE SHOULD CHECK IF CONCURRENCY IS MET
+                if top.is_waiting_to_start():
                     if self.current_concurrency <= self.concurrency:
                         self.start_training(top)
-                    self.create_future_training_start_event()
+                        self.create_future_training_start_event()
                 else:
                     self.num_train_end_events += 1
                     self.end_training(top)
                     pbar.update(1)
+                    self.create_future_training_start_event()
 
     def avg_pending_jobs(self) -> float:
         return self.queue_stats.avg_pending_jobs()
