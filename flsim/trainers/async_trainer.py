@@ -94,6 +94,7 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         self.metrics_reporter: "IFLMetricsReporter" = None
         self.best_metric = None
         self.best_model_state = self.global_model().fl_get_module().state_dict()
+        self.concurrency = self.cfg.concurrency
 
     @classmethod
     def _set_defaults_in_cfg(cls, cfg):
@@ -199,6 +200,7 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         metrics = Metric.from_args(
             # pyre-fixme[16]: `Optional` has no attribute `queue_stats`.
             Concurrency_Rate=self._training_simulator.queue_stats.avg_pending_jobs(),
+            My_Concurrency_Rate=self._training_simulator.get_concurrency_rate(),
             Seqnum_Diff_Mean=self.aggregator.seqnum_tracker.mean(),
             Seqnum_Diff_Std=self.aggregator.seqnum_tracker.standard_deviation(),
             Weight_Mean=self.weight.stats.mean(),
@@ -269,6 +271,7 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
             timeout_simulator=self._timeout_simulator,
             channel=self.channel,
             cuda_manager=self._cuda_state_manager,
+            concurrency=self.concurrency
         )
         num_int_epochs = math.ceil(self.cfg.epochs)
         for _epoch in tqdm(range(1, num_int_epochs + 1), desc="Epoch", unit="epoch"):
@@ -297,3 +300,4 @@ class AsyncTrainerConfig(FLTrainerConfig):
     # Minimize CPU<-->GPU memory bandwidth at the cost of increasing GPU memory consumption,
     # Turning this off will increase training time
     minimize_cuda_transfer: bool = True
+    concurrency: int = 1000

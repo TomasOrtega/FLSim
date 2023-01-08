@@ -82,6 +82,7 @@ class AsyncTrainingSimulator:
         cuda_manager: ICudaStateManager = DEFAULT_CUDA_MANAGER,
         timeout_simulator: Optional[TimeOutSimulator] = None,
         channel: Optional[IdentityChannel] = None,
+        concurrency: int = 1000,
     ):
         self.job_scheduler: AsyncTrainingEventHandler = job_scheduler
         self.user_selector: AsyncUserSelector = user_selector
@@ -95,6 +96,8 @@ class AsyncTrainingSimulator:
         self.timeout_simulator = timeout_simulator
         self.channel = channel
         self.cuda_manager = cuda_manager
+        self.concurrency = concurrency
+        self.current_concurrency = 0
         # init the first event
         self.create_future_training_start_event()
 
@@ -113,12 +116,14 @@ class AsyncTrainingSimulator:
         self.min_heap.put(new_client)
 
     def start_training(self, top: AsyncClientDevice) -> None:
+        self.current_concurrency += 1
         self.job_scheduler.on_training_start(top)
         # put will query __lt__ on top
         self.min_heap.put(top)
         self.queue_stats.on_job_start()
 
     def end_training(self, top: AsyncClientDevice) -> None:
+        self.current_concurrency -= 1
         self.queue_stats.on_job_end()
         self.job_scheduler.on_training_end(top)
 
@@ -139,8 +144,9 @@ class AsyncTrainingSimulator:
                 # forward time
                 self.current_time = top.next_event_time()
 
-                if top.is_waiting_to_start():
-                    self.start_training(top)
+                if top.is_waiting_to_start(): # HERE WE SHOULD CHECK IF CONCURRENCY IS MET
+                    if self.current_concurrency <= self.concurrency:
+                        self.start_training(top)
                     self.create_future_training_start_event()
                 else:
                     self.num_train_end_events += 1
@@ -153,3 +159,6 @@ class AsyncTrainingSimulator:
     def print_stats(self, prefix: str) -> None:
         print(f"{prefix}PendingJobs, {self.queue_stats.as_str()}")
         print(f"Current Time: {self.current_time:.4f}")
+    
+    def get_concurrency_rate(self) -> float:
+        return self.current_concurrency / self.concurrency

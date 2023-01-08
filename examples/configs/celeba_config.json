@@ -2,7 +2,8 @@
   "config": {
     "trainer": {
       "_base_": "base_async_trainer",
-      "epochs": 1,
+      "epochs": 8,
+      "concurrency": 1000,
       "train_metrics_reported_per_epoch": 1,
       "always_keep_trained_model": false,
       "client": {
@@ -13,18 +14,24 @@
           "momentum": 0
         }
       },
+      "channel": {
+        "_base_": "base_scalar_quantization_channel",
+        "report_communication_metrics": true,
+        "n_bits": 8,
+        "quantize_per_tensor": true
+      },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
         "lr": 1000,
         "momentum": 0.3,
         "buffer_size": 10,
-        "hidden_state": false
+        "hidden_state": true
       },
       "training_event_generator": {
         "_base_": "base_async_training_event_generator",
         "training_start_time_distribution": {
           "_base_": "base_constant_training_start_time_distribution",
-          "training_rate": 100
+          "training_rate": 2000
         },
         "duration_distribution_generator": {
           "_base_": "base_per_user_half_normal_duration_distribution",
@@ -54,6 +61,7 @@
       "window_size": 1,
       "average_type": "sma"
     },
+    "distributed_world_size": 1,
     "use_cuda_if_available": true
   }
 }

@@ -16,6 +16,7 @@ import torch
 from flsim.channels.base_channel import IdentityChannel
 from flsim.channels.message import Message
 from flsim.channels.scalar_quantization_channel import ScalarQuantizationChannel
+from flsim.channels.sparse_mask_channel import SparseMaskChannel
 from flsim.common.logger import Logger
 from flsim.interfaces.model import IFLModel
 from flsim.privacy.common import PrivacyBudget
@@ -114,7 +115,9 @@ class AsyncAggregator:
         self._quantization_state: IFLModel = FLModelParamUtils.clone(self._global_model)
         self.server_to_broadcast_channel = IdentityChannel()
         if self.cfg.hidden_state:
-            self.server_to_broadcast_channel = ScalarQuantizationChannel() # TODO -- change for each experiment, with the identity channel we recover FedBuff (if there is no client quantization)
+            # self.server_to_broadcast_channel = ScalarQuantizationChannel()
+            self.server_to_broadcast_channel = SparseMaskChannel(sparsity_method = "topk", proportion_of_zero_weights = 0.1)
+            # TODO -- change for each experiment, with the identity channel we recover FedBuff (if there is no client quantization)
         self._reconstructed_grad: IFLModel = FLModelParamUtils.clone(self._global_model)
         # there is no concept of a round in async, hence round reducer is not tied to a round
         self.reducer = instantiate(
@@ -446,7 +449,8 @@ class FedBuffAggregator(AsyncAggregator):
         # we will use _on_client_before_transmission and _on_server_after_reception to use the FLSim quantization and dequantization code, no point re-implementing good code.
         message = Message(model=self._quantization_state)
         quantized_message = self.server_to_broadcast_channel._on_client_before_transmission(message)
-        bytes_broadcasted = self.server_to_broadcast_channel._calc_message_size_server_to_client(quantized_message) # so far, unused, should be reported eventually
+        bytes_broadcasted = self.server_to_broadcast_channel._calc_message_size_client_to_server(quantized_message) # so far, unused, should be reported eventually
+        print("\nBytes broadcasted: {}\n".format(bytes_broadcasted))
         dequantized_message = self.server_to_broadcast_channel._on_server_after_reception(quantized_message)
 
         self._quantization_state = dequantized_message.model
