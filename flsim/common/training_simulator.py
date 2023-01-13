@@ -152,7 +152,6 @@ class AsyncTrainingSimulator:
                     self.num_train_end_events += 1
                     self.end_training(top)
                     pbar.update(1)
-                    self.create_future_training_start_event()
 
     def avg_pending_jobs(self) -> float:
         return self.queue_stats.avg_pending_jobs()
