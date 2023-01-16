@@ -27,7 +27,6 @@ import re
 import string
 import unicodedata
 from typing import List
-from random import randint
 
 import flsim.configs  # noqa
 import hydra  # @manual
@@ -64,6 +63,8 @@ class CharLSTM(nn.Module):
         self.n_hidden = n_hidden
         self.num_classes = num_classes
         
+        embedding_vectors = torch.zeros([num_embeddings + 1, embedding_dim], dtype=torch.float32)
+        embedding_vectors[0:num_embeddings -1, :] = glove.vectors
         self.embedding = nn.Embedding.from_pretrained(glove.vectors)
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
@@ -131,7 +132,7 @@ class Sent140Dataset(Dataset):
         if token in self.glove.stoi:
             return self.glove.stoi[token]
         else:
-            return randint(0, self.num_embeddings - 1)
+            return self.num_embeddings
 
     def tokens_to_indices(self, tokens):
         indices = [self.token_to_index(token) for token in tokens]
