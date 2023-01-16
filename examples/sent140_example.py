@@ -121,7 +121,7 @@ class Sent140Dataset(Dataset):
         if len(tokens) >= max_seq_len:
             tokens = tokens[:max_seq_len]
         else:
-            tokens + [" "] * (max_seq_len - len(tokens))
+            tokens + ["unk"] * (max_seq_len - len(tokens))
         print(tokens)         
         return tokens
     
