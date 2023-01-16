@@ -27,6 +27,7 @@ import re
 import string
 import unicodedata
 from typing import List
+from random import randint
 
 import flsim.configs  # noqa
 import hydra  # @manual
@@ -129,7 +130,7 @@ class Sent140Dataset(Dataset):
         if token in self.glove.stoi:
             return self.glove.stoi[token]
         else:
-            return self.num_embeddings
+            return randint(0, self.num_embeddings - 1)
 
     def tokens_to_indices(self, tokens):
         indices = [self.token_to_index(token) for token in tokens]
