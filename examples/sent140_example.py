@@ -185,7 +185,7 @@ def main_worker(
     glove_dim = 300
     num_embeddings = 10000
     glove = GloVe(name="6B", dim=glove_dim, max_vectors=num_embeddings) # as per FedBuff paper
-    data_provider = build_data_provider(data_config, glove, num_embeddings)
+    data_provider = build_data_provider(data_config, glove, drop_last=False, num_embeddings=num_embeddings)
     model = CharLSTM(
         num_classes=model_config.num_classes,
         n_hidden=model_config.n_hidden,
