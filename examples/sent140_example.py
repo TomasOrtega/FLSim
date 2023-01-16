@@ -65,7 +65,7 @@ class CharLSTM(nn.Module):
         
         embedding_vectors = torch.zeros([num_embeddings + 1, embedding_dim], dtype=torch.float32)
         embedding_vectors[:-1, :] = glove.vectors
-        self.embedding = nn.Embedding.from_pretrained(glove.vectors)
+        self.embedding = nn.Embedding.from_pretrained(embedding_vectors)
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
             hidden_size=self.n_hidden,
@@ -75,7 +75,6 @@ class CharLSTM(nn.Module):
         )
         self.fc = nn.Linear(self.n_hidden, self.num_classes)
         self.dropout = nn.Dropout(p=self.dropout_rate)
-        self.glove = glove
 
     def forward(self, x):
         x = self.embedding(x)  # [B, S] -> [B, S, E]
@@ -90,7 +89,7 @@ class Sent140Dataset(Dataset):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
         self.tokenizer = get_tokenizer("basic_english")
-        self.glove = glove
+        self.stoi = glove.stoi # string to index dictionary
         self.num_embeddings = num_embeddings
 
         with open(data_root, "r+") as f:
@@ -129,8 +128,8 @@ class Sent140Dataset(Dataset):
         return tokens
     
     def token_to_index(self, token):
-        if token in self.glove.stoi:
-            return self.glove.stoi[token]
+        if token in self.stoi:
+            return self.stoi[token]
         else:
             return self.num_embeddings
 
