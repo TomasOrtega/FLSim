@@ -85,7 +85,6 @@ class Sent140Dataset(Dataset):
     def __init__(self, data_root, max_seq_len):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
-        self.UNK: int = self.num_letters
         self.tokenizer = get_tokenizer("basic_english")
 
         with open(data_root, "r+") as f:
