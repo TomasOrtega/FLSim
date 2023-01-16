@@ -226,7 +226,7 @@ def run(cfg: DictConfig) -> None:
     model_config = cfg.model
     data_config = cfg.data
 
-    main_worker(trainer_config, model_config, data_config)
+    main_worker(trainer_config, model_config, data_config, use_cuda_if_available=cfg.use_cuda_if_available)
 
 
 if __name__ == "__main__":
