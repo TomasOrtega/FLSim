@@ -121,7 +121,7 @@ class Sent140Dataset(Dataset):
         if len(tokens) >= max_seq_len:
             tokens = tokens[:max_seq_len]
         else:
-            tokens + [""] * (max_seq_len - len(tokens))
+            tokens + [" "] * (max_seq_len - len(tokens))
         print(tokens)         
         return tokens
     
@@ -129,7 +129,7 @@ class Sent140Dataset(Dataset):
         if token in self.glove.stoi:
             return self.glove.stoi[token]
         else:
-            return self.glove.dim
+            return 10000
 
     def tokens_to_indices(self, tokens):
         indices = [self.token_to_index(token) for token in tokens]
