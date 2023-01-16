@@ -122,7 +122,6 @@ class Sent140Dataset(Dataset):
             tokens = tokens[:max_seq_len]
         else:
             tokens = tokens + [""] * (max_seq_len - len(tokens))
-        print(tokens)         
         return tokens
     
     def token_to_index(self, token):
@@ -133,14 +132,12 @@ class Sent140Dataset(Dataset):
 
     def tokens_to_indices(self, tokens):
         indices = [self.token_to_index(token) for token in tokens]
-        print(indices)
         return indices
 
     def process_x(self, raw_x_batch):
         x_batch = [e[4] for e in raw_x_batch]
         x_batch = [self.line_to_tokens(e, self.max_seq_len) for e in x_batch]
         x_batch = [self.tokens_to_indices(e) for e in x_batch]
-        print(x_batch)
         x_batch = torch.LongTensor(x_batch)
         return x_batch
 
