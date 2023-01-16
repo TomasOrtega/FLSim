@@ -83,11 +83,12 @@ class CharLSTM(nn.Module):
 
 
 class Sent140Dataset(Dataset):
-    def __init__(self, data_root, max_seq_len, glove):
+    def __init__(self, data_root, max_seq_len, glove, num_embeddings):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
         self.tokenizer = get_tokenizer("basic_english")
         self.glove = glove
+        self.num_embeddings = num_embeddings
 
         with open(data_root, "r+") as f:
             self.dataset = json.load(f)
@@ -128,7 +129,7 @@ class Sent140Dataset(Dataset):
         if token in self.glove.stoi:
             return self.glove.stoi[token]
         else:
-            return 10000
+            return self.num_embeddings
 
     def tokens_to_indices(self, tokens):
         indices = [self.token_to_index(token) for token in tokens]
@@ -146,17 +147,19 @@ class Sent140Dataset(Dataset):
         return y_batch
 
 
-def build_data_provider(data_config, glove, drop_last: bool = False):
+def build_data_provider(data_config, glove, drop_last: bool = False, num_embeddings: int = 10000):
     
     train_dataset = Sent140Dataset(
         data_root="../../leaf/data/sent140/data/train/all_data_0_15_keep_1_train_8.json",
         max_seq_len=data_config.max_seq_len,
         glove=glove,
+        num_embeddings=num_embeddings
     )
     test_dataset = Sent140Dataset(
         data_root="../../leaf/data/sent140/data/test/all_data_0_15_keep_1_test_8.json",
         max_seq_len=data_config.max_seq_len,
         glove=glove,
+        num_embeddings=num_embeddings
     )
 
     dataloader = LEAFDataLoader(
@@ -180,12 +183,13 @@ def main_worker(
 ) -> None:
     # Glove pre-trained embedding
     glove_dim = 300
-    glove = GloVe(name="6B", dim=glove_dim, max_vectors=10000) # as per FedBuff paper
-    data_provider = build_data_provider(data_config, glove)
-
+    num_embeddings = 10000
+    glove = GloVe(name="6B", dim=glove_dim, max_vectors=num_embeddings) # as per FedBuff paper
+    data_provider = build_data_provider(data_config, glove, num_embeddings)
     model = CharLSTM(
         num_classes=model_config.num_classes,
         n_hidden=model_config.n_hidden,
+        num_embeddings=num_embeddings,
         embedding_dim=glove_dim,
         max_seq_len=data_config.max_seq_len,
         dropout_rate=model_config.dropout_rate,
