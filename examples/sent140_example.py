@@ -131,7 +131,8 @@ class Sent140Dataset(Dataset):
             return self.glove.dim
 
     def tokens_to_indices(self, tokens):
-        indices = [self.token_to_index[token] for token in tokens]
+        indices = [self.token_to_index(token) for token in tokens]
+        return indices
 
     def process_x(self, raw_x_batch):
         x_batch = [e[4] for e in raw_x_batch]
