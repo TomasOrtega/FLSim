@@ -135,11 +135,11 @@ class Sent140Dataset(Dataset):
 def build_data_provider(data_config, drop_last: bool = False):
     
     train_dataset = Sent140Dataset(
-        data_root="leaf/data/sent140/data/train/all_data_0_01_keep_1_train_9.json",
+        data_root="../../leaf/data/sent140/data/train/all_data_0_15_keep_1_train_8.json",
         max_seq_len=data_config.max_seq_len,
     )
     test_dataset = Sent140Dataset(
-        data_root="leaf/data/sent140/data/test/all_data_0_01_keep_1_test_9.json",
+        data_root="../../leaf/data/sent140/data/test/all_data_0_15_keep_1_train_8.json",
         max_seq_len=data_config.max_seq_len,
     )
 
