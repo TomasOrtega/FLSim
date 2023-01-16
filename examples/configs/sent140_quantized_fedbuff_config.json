@@ -1,5 +1,6 @@
 {
   "config": {
+    "use_cuda_if_available": false,
     "trainer": {
       "_base_": "base_async_trainer",
       "epochs": 20,

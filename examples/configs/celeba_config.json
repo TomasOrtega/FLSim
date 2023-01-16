@@ -62,6 +62,6 @@
       "average_type": "sma"
     },
     "distributed_world_size": 1,
-    "use_cuda_if_available": true
+    "use_cuda_if_available": false
   }
 }
