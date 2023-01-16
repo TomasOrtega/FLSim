@@ -63,6 +63,7 @@ class CharLSTM(nn.Module):
         self.n_hidden = n_hidden
         self.num_classes = num_classes
         
+        self.embedding = nn.Embedding.from_pretrained(glove.vectors)
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
             hidden_size=self.n_hidden,
@@ -75,17 +76,18 @@ class CharLSTM(nn.Module):
         self.glove = glove
 
     def forward(self, x):
-        x = self.glove.get_vecs_by_tokens(x)  # [B, S] -> [B, S, E]
+        x = self.embedding(x)  # [B, S] -> [B, S, E]
         out, _ = self.lstm(x)  # [B, S, E] -> [B, S, H]
         out = self.fc(self.dropout(out))  # [B, S, H] -> # [B, S, C]
         return out
 
 
 class Sent140Dataset(Dataset):
-    def __init__(self, data_root, max_seq_len):
+    def __init__(self, data_root, max_seq_len, glove):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
         self.tokenizer = get_tokenizer("basic_english")
+        self.glove = glove
 
         with open(data_root, "r+") as f:
             self.dataset = json.load(f)
@@ -121,10 +123,21 @@ class Sent140Dataset(Dataset):
         else:
             tokens + [""] * (max_seq_len - len(tokens))         
         return tokens
+    
+    def token_to_index(self, token):
+        if token in self.glove.stoi:
+            return self.glove.stoi[token]
+        else:
+            return self.glove.dim
+
+    def tokens_to_indices(self, tokens):
+        indices = [self.token_to_index[token] for token in tokens]
 
     def process_x(self, raw_x_batch):
         x_batch = [e[4] for e in raw_x_batch]
         x_batch = [self.line_to_tokens(e, self.max_seq_len) for e in x_batch]
+        x_batch = [self.tokens_to_indices(e, self.max_seq_len) for e in x_batch]
+        x_batch = torch.LongTensor(x_batch)
         return x_batch
 
     def process_y(self, raw_y_batch):
@@ -132,15 +145,17 @@ class Sent140Dataset(Dataset):
         return y_batch
 
 
-def build_data_provider(data_config, drop_last: bool = False):
+def build_data_provider(data_config, glove, drop_last: bool = False):
     
     train_dataset = Sent140Dataset(
         data_root="../../leaf/data/sent140/data/train/all_data_0_15_keep_1_train_8.json",
         max_seq_len=data_config.max_seq_len,
+        glove=glove,
     )
     test_dataset = Sent140Dataset(
         data_root="../../leaf/data/sent140/data/test/all_data_0_15_keep_1_test_8.json",
         max_seq_len=data_config.max_seq_len,
+        glove=glove,
     )
 
     dataloader = LEAFDataLoader(
@@ -165,7 +180,7 @@ def main_worker(
     # Glove pre-trained embedding
     glove_dim = 300
     glove = GloVe(name="6B", dim=glove_dim, max_vectors=10000) # as per FedBuff paper
-    data_provider = build_data_provider(data_config)
+    data_provider = build_data_provider(data_config, glove)
 
     model = CharLSTM(
         num_classes=model_config.num_classes,
