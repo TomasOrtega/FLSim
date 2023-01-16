@@ -165,7 +165,7 @@ def main_worker(
 ) -> None:
     # Glove pre-trained embedding
     glove_dim = 300
-    glove = GloVe(name="6B", dim=glove_dim, max_size=10000) # as per FedBuff paper
+    glove = GloVe(name="6B", dim=glove_dim, max_vectors=10000) # as per FedBuff paper
     data_provider = build_data_provider(data_config)
 
     model = CharLSTM(
