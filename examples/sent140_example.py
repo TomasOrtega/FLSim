@@ -64,7 +64,7 @@ class CharLSTM(nn.Module):
         self.num_classes = num_classes
         
         embedding_vectors = torch.zeros([num_embeddings + 1, embedding_dim], dtype=torch.float32)
-        embedding_vectors[0:num_embeddings -1, :] = glove.vectors
+        embedding_vectors[:-1, :] = glove.vectors
         self.embedding = nn.Embedding.from_pretrained(glove.vectors)
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
