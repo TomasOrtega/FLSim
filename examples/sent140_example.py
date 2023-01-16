@@ -44,6 +44,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import Dataset
 from torchtext.vocab import GloVe
+from torchtext.data import get_tokenizer
 
 
 class CharLSTM(nn.Module):
@@ -55,21 +56,13 @@ class CharLSTM(nn.Module):
         embedding_dim,
         max_seq_len,
         dropout_rate,
+        glove,
     ):
         super().__init__()
         self.dropout_rate = dropout_rate
         self.n_hidden = n_hidden
         self.num_classes = num_classes
-        self.max_seq_len = max_seq_len
-        self.num_embeddings = num_embeddings
-
-        # Glove pre-trained embedding
-        #glove = GloVe(name="6B", dim=embedding_dim) # should be 300
-        #self.embedding = nn.Embedding.from_pretrained(glove.vectors)
-
-        self.embedding = nn.Embedding(
-            num_embeddings=self.num_embeddings, embedding_dim=embedding_dim
-        )
+        
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
             hidden_size=self.n_hidden,
@@ -79,12 +72,11 @@ class CharLSTM(nn.Module):
         )
         self.fc = nn.Linear(self.n_hidden, self.num_classes)
         self.dropout = nn.Dropout(p=self.dropout_rate)
+        self.glove = glove
 
     def forward(self, x):
-        seq_lens = torch.sum(x != (self.num_embeddings - 1), 1) - 1
-        x = self.embedding(x)  # [B, S] -> [B, S, E]
+        x = self.glove.get_vecs_by_tokens(x)  # [B, S] -> [B, S, E]
         out, _ = self.lstm(x)  # [B, S, E] -> [B, S, H]
-        out = out[torch.arange(out.size(0)), seq_lens]
         out = self.fc(self.dropout(out))  # [B, S, H] -> # [B, S, C]
         return out
 
@@ -93,9 +85,8 @@ class Sent140Dataset(Dataset):
     def __init__(self, data_root, max_seq_len):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
-        self.all_letters = {c: i for i, c in enumerate(string.printable)}
-        self.num_letters = len(self.all_letters)
         self.UNK: int = self.num_letters
+        self.tokenizer = get_tokenizer("basic_english")
 
         with open(data_root, "r+") as f:
             self.dataset = json.load(f)
@@ -123,52 +114,27 @@ class Sent140Dataset(Dataset):
 
         return self.data[user_id], self.targets[user_id]
 
-    def unicodeToAscii(self, s):
-        return "".join(
-            c
-            for c in unicodedata.normalize("NFD", s)
-            if unicodedata.category(c) != "Mn" and c in self.all_letters
-        )
-
-    def line_to_indices(self, line: str, max_seq_len: int):
-        line_list = self.split_line(line)  # split phrase in words
-        line_list = line_list
-        chars = self.flatten_list([list(word) for word in line_list])
+    def line_to_tokens(self, line: str, max_seq_len: int):
+        tokens = self.tokenizer(line)  # split phrase in tokens
         # padding
-        indices: List[int] = [
-            self.all_letters.get(letter, self.UNK)
-            for i, letter in enumerate(chars)
-            if i < max_seq_len
-        ]
-        indices = indices + ([self.UNK] * (max_seq_len - len(indices)))
-        return indices
+        if len(tokens) >= max_seq_len:
+            tokens = tokens[:max_seq_len]
+        else:
+            tokens + [""] * (max_seq_len - len(tokens))         
+        return tokens
 
     def process_x(self, raw_x_batch):
         x_batch = [e[4] for e in raw_x_batch]
-        x_batch = [self.line_to_indices(e, self.max_seq_len) for e in x_batch]
-        x_batch = torch.LongTensor(x_batch)
+        x_batch = [self.line_to_tokens(e, self.max_seq_len) for e in x_batch]
         return x_batch
 
     def process_y(self, raw_y_batch):
         y_batch = [int(e) for e in raw_y_batch]
         return y_batch
 
-    def split_line(self, line):
-        """split given line/phrase into list of words
-        Args:
-            line: string representing phrase to be split
-
-        Return:
-            list of strings, with each string representing a word
-        """
-        return re.findall(r"[\w']+|[.,!?;]", line)
-
-    def flatten_list(self, nested_list):
-        return list(itertools.chain.from_iterable(nested_list))
-
 
 def build_data_provider(data_config, drop_last: bool = False):
-
+    
     train_dataset = Sent140Dataset(
         data_root="leaf/data/sent140/data/train/all_data_0_01_keep_1_train_9.json",
         max_seq_len=data_config.max_seq_len,
@@ -187,7 +153,7 @@ def build_data_provider(data_config, drop_last: bool = False):
     )
 
     data_provider = DataProvider(dataloader)
-    return data_provider, train_dataset.num_letters
+    return data_provider
 
 
 def main_worker(
@@ -197,15 +163,18 @@ def main_worker(
     use_cuda_if_available: bool = True,
     distributed_world_size: int = 1,
 ) -> None:
-    data_provider, num_letters = build_data_provider(data_config)
+    # Glove pre-trained embedding
+    glove_dim = 300
+    glove = GloVe(name="6B", dim=glove_dim, max_size=10000) # as per FedBuff paper
+    data_provider = build_data_provider(data_config)
 
     model = CharLSTM(
         num_classes=model_config.num_classes,
         n_hidden=model_config.n_hidden,
-        num_embeddings=num_letters + 1,
-        embedding_dim=300,
+        embedding_dim=glove_dim,
         max_seq_len=data_config.max_seq_len,
         dropout_rate=model_config.dropout_rate,
+        glove=glove
     )
     cuda_enabled = torch.cuda.is_available() and use_cuda_if_available
     device = torch.device(f"cuda:{0}" if cuda_enabled else "cpu")

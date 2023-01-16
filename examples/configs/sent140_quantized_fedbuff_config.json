@@ -31,7 +31,7 @@
         "_base_": "base_async_training_event_generator",
         "training_start_time_distribution": {
           "_base_": "base_constant_training_start_time_distribution",
-          "training_rate": 2000
+          "training_rate": 100
         },
         "duration_distribution_generator": {
           "_base_": "base_per_user_half_normal_duration_distribution",
