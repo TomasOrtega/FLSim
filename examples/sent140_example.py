@@ -132,6 +132,8 @@ class Sent140Dataset(Dataset):
     def word_to_index(self, word):
         if word in self.stoi:
             return self.stoi[word]
+        elif word.lower() in self.stoi:
+            return self.stoi[word.lower()]
         else:
             return self.num_embeddings
 
