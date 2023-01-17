@@ -10,14 +10,14 @@
         "epochs": 1,
         "optimizer": {
           "_base_": "base_optimizer_sgd",
-          "lr": 0.0000047,
+          "lr": 0.13,
           "momentum": 0
         }
       },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
-        "lr": 1000,
-        "momentum": 0.3,
+        "lr": 490,
+        "momentum": 0.5,
         "buffer_size": 10,
         "hidden_state": false
       },
