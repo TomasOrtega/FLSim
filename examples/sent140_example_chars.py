@@ -163,13 +163,11 @@ def build_data_provider(data_config, glove, drop_last: bool = False, num_embeddi
     train_dataset = Sent140Dataset(
         data_root="../../leaf/data/sent140/data/train/all_data_0_15_keep_1_train_8.json",
         max_seq_len=data_config.max_seq_len,
-        glove=glove,
         num_embeddings=num_embeddings
     )
     test_dataset = Sent140Dataset(
         data_root="../../leaf/data/sent140/data/test/all_data_0_15_keep_1_test_8.json",
         max_seq_len=data_config.max_seq_len,
-        glove=glove,
         num_embeddings=num_embeddings
     )
 
