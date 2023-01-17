@@ -73,16 +73,17 @@ class CharLSTM(nn.Module):
             batch_first=True,
             dropout=self.dropout_rate,
         )
-        self.dropout = nn.Dropout(p=self.dropout_rate)
         self.fc = nn.Linear(self.n_hidden, 128)
         self.pred = nn.Linear(128, self.num_classes)
+        self.dropout = nn.Dropout(p=self.dropout_rate)
+
 
     def forward(self, x):
         x = self.embedding(x)  # [B, S] -> [B, S, E]
         out, _ = self.lstm(x)  # [B, S, E] -> [B, S, H]
         out = out[:, -1] # slice lstm_out to just get output of last element of the input sequence
-        out = self.fc(self.dropout(out))
-        out = self.pred(out)  # [B, S, H] -> # [B, S, C]
+        out = self.fc(out)
+        out = self.pred(self.dropout(out))  # [B, S, H] -> # [B, S, C]
         return out
 
 
