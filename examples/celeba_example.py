@@ -111,12 +111,12 @@ def build_data_provider(data_config):
         ]
     )
     train_dataset = CelebaDataset(
-        data_root="leaf/data/celeba/data/train/all_data_0_0_keep_0_train_8.json",
-        image_root="leaf/data/celeba/data/raw/",
+        data_root="../../leaf/data/celeba/data/train/all_data_0_0_keep_0_train_8.json",
+        image_root="../../leaf/data/celeba/data/raw/",
         transform=transform,
     )
     test_dataset = CelebaDataset(
-        data_root="leaf/data/celeba/data/test/all_data_0_0_keep_0_test_8.json",
+        data_root="../../leaf/data/celeba/data/test/all_data_0_0_keep_0_test_8.json",
         transform=transform,
         image_root=train_dataset.image_root,
     )
