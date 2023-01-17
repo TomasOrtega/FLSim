@@ -82,9 +82,9 @@ class CharLSTM(nn.Module):
         x = self.embedding(x)  # [B, S] -> [B, S, E]
         out, _ = self.lstm(x)  # [B, S, E] -> [B, S, H]
         out = out[:, -1] # slice lstm_out to just get output of last element of the input sequence
-        out = self.fc(out)
+        # out = self.fc(out)
         # out = self.pred(self.dropout(out))  # [B, S, H] -> # [B, S, C]
-        out = self.pred(out)  # [B, S, H] -> # [B, S, C]
+        out = self.fc(self.dropout(out))  # [B, S, H] -> # [B, S, C]
         return out
 
 
