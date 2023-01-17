@@ -3,20 +3,20 @@
     "trainer": {
       "_base_": "base_async_trainer",
       "epochs": 20,
-      "concurrency": 1000,
+      "concurrency": 10000,
       "train_metrics_reported_per_epoch": 1,
       "always_keep_trained_model": false,
       "client": {
         "epochs": 1,
         "optimizer": {
           "_base_": "base_optimizer_sgd",
-          "lr": 0.13,
+          "lr": 13,
           "momentum": 0
         }
       },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
-        "lr": 490,
+        "lr": 0.049,
         "momentum": 0.5,
         "buffer_size": 10,
         "hidden_state": false
@@ -35,8 +35,9 @@
       },
       "async_weight": {
         "_base_": "base_async_weight",
-        "example_weight": {
-          "_base_": "base_equal_example_weight"
+        "staleness_weight": {
+          "_base_": "base_polynomial_staleness_weight",
+          "exponent": 0.5
         }
       },
       "report_train_metrics": true,
