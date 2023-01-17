@@ -16,7 +16,7 @@
       },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
-        "lr": 49,
+        "lr": 490,
         "momentum": 0.5,
         "buffer_size": 10,
         "hidden_state": false
