@@ -3,7 +3,7 @@
     "trainer": {
       "_base_": "base_async_trainer",
       "epochs": 8,
-      "concurrency": 1000,
+      "concurrency": 10000,
       "train_metrics_reported_per_epoch": 1,
       "always_keep_trained_model": false,
       "client": {
@@ -31,7 +31,7 @@
         "_base_": "base_async_training_event_generator",
         "training_start_time_distribution": {
           "_base_": "base_constant_training_start_time_distribution",
-          "training_rate": 100
+          "training_rate": 1000
         },
         "duration_distribution_generator": {
           "_base_": "base_per_user_half_normal_duration_distribution",
@@ -41,8 +41,9 @@
       },
       "async_weight": {
         "_base_": "base_async_weight",
-        "example_weight": {
-          "_base_": "base_equal_example_weight"
+        "staleness_weight": {
+          "_base_": "base_polynomial_staleness_weight",
+          "exponent": 0.5
         }
       },
       "report_train_metrics": true,
