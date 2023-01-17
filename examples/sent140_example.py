@@ -64,7 +64,6 @@ class CharLSTM(nn.Module):
         self.num_classes = num_classes
         
         embedding_vectors = torch.zeros([num_embeddings + 1, embedding_dim], dtype=torch.float32)
-        print(glove.vectors.shape, embedding_vectors.shape)
         embedding_vectors[:-1, :] = glove.vectors
         self.embedding = nn.Embedding.from_pretrained(embedding_vectors)
         self.lstm = nn.LSTM(
@@ -144,10 +143,12 @@ class Sent140Dataset(Dataset):
         return indices
 
     def process_x(self, raw_x_batch):
+        print(x_batch)
         x_batch = [e[4] for e in raw_x_batch]
         x_batch = [self.line_to_tokens(e, self.max_seq_len) for e in x_batch]
         x_batch = [self.tokens_to_indices(e) for e in x_batch]
         x_batch = torch.LongTensor(x_batch)
+        print(x_batch)
         return x_batch
 
     def process_y(self, raw_y_batch):
