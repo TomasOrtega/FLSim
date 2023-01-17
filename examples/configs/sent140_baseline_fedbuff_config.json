@@ -12,7 +12,8 @@
           "_base_": "base_optimizer_sgd",
           "lr": 13,
           "momentum": 0
-        }
+        },
+        "max_clip_norm_normalized": 0.1
       },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
