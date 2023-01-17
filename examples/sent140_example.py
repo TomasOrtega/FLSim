@@ -44,8 +44,6 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import Dataset
 from torchtext.vocab import GloVe
-from torchtext.data import get_tokenizer
-
 
 class CharLSTM(nn.Module):
     def __init__(
@@ -93,7 +91,6 @@ class Sent140Dataset(Dataset):
     def __init__(self, data_root, max_seq_len, glove, num_embeddings):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
-        self.tokenizer = get_tokenizer("basic_english")
         self.stoi = glove.stoi # string to index dictionary
         self.num_embeddings = num_embeddings
 
@@ -123,30 +120,30 @@ class Sent140Dataset(Dataset):
 
         return self.data[user_id], self.targets[user_id]
 
-    def line_to_tokens(self, line: str, max_seq_len: int):
-        tokens = self.tokenizer(line)  # split phrase in tokens
+    def line_to_words(self, line: str, max_seq_len: int):
+        words = re.findall(r"[\w']+|[.,!?;]", line)  # split phrase in words
         # padding
-        if len(tokens) >= max_seq_len:
-            tokens = tokens[:max_seq_len]
+        if len(words) >= max_seq_len:
+            words = words[:max_seq_len]
         else:
-            tokens = tokens + [""] * (max_seq_len - len(tokens))
-        return tokens
+            words = words + [""] * (max_seq_len - len(words))
+        return words
     
-    def token_to_index(self, token):
-        if token in self.stoi:
-            return self.stoi[token]
+    def word_to_index(self, word):
+        if word in self.stoi:
+            return self.stoi[word]
         else:
             return self.num_embeddings
 
-    def tokens_to_indices(self, tokens):
-        indices = [self.token_to_index(token) for token in tokens]
+    def words_to_indices(self, words):
+        indices = [self.word_to_index(word) for word in words]
         return indices
 
     def process_x(self, raw_x_batch):
         x_batch = [e[4] for e in raw_x_batch]
         print(x_batch)
-        x_batch = [self.line_to_tokens(e, self.max_seq_len) for e in x_batch]
-        x_batch = [self.tokens_to_indices(e) for e in x_batch]
+        x_batch = [self.line_to_words(e, self.max_seq_len) for e in x_batch]
+        x_batch = [self.words_to_indices(e) for e in x_batch]
         x_batch = torch.LongTensor(x_batch)
         print(x_batch)
         return x_batch
