@@ -143,8 +143,8 @@ class Sent140Dataset(Dataset):
         return indices
 
     def process_x(self, raw_x_batch):
-        print(x_batch)
         x_batch = [e[4] for e in raw_x_batch]
+        print(x_batch)
         x_batch = [self.line_to_tokens(e, self.max_seq_len) for e in x_batch]
         x_batch = [self.tokens_to_indices(e) for e in x_batch]
         x_batch = torch.LongTensor(x_batch)
