@@ -448,9 +448,13 @@ class FedBuffAggregator(AsyncAggregator):
 
         # we will use _on_client_before_transmission and _on_server_after_reception to use the FLSim quantization and dequantization code, no point re-implementing good code.
         message = Message(model=self._quantization_state)
+        state_dict = self._quantization_state.fl_get_module.state_dict()
+        model_size_bytes = sum(
+            p.numel() * p.element_size() for (_, p) in state_dict.items()
+        )
         quantized_message = self.server_to_broadcast_channel._on_client_before_transmission(message)
         bytes_broadcasted = self.server_to_broadcast_channel._calc_message_size_client_to_server(quantized_message) # so far, unused, should be reported eventually
-        print("\nBytes broadcasted: {}\n".format(bytes_broadcasted))
+        print("\nBytes broadcasted: {}, original model size: {}\n".format(bytes_broadcasted, model_size_bytes))
         dequantized_message = self.server_to_broadcast_channel._on_server_after_reception(quantized_message)
 
         self._quantization_state = dequantized_message.model
