@@ -1,0 +1,15 @@
+python3 celeba_example.py --config-file=configs/celeba_config_baseline100.json > baseline1001.txt
+python3 celeba_example.py --config-file=configs/celeba_config_baseline100.json > baseline1002.txt
+python3 celeba_example.py --config-file=configs/celeba_config_staleness100.json > baseline1003.txt
+python3 celeba_example.py --config-file=configs/celeba_config_baseline500.json > baseline5001.txt
+python3 celeba_example.py --config-file=configs/celeba_config_baseline500.json > baseline5002.txt
+python3 celeba_example.py --config-file=configs/celeba_config_staleness500.json > baseline5003.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits100.json > 4bits1001.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits100.json > 4bits1002.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits100.json > 4bits1003.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits500.json > 4bits5001.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits500.json > 4bits5002.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits500.json > 4bits5003.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits1000.json > 4bits10001.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits1000.json > 4bits10002.txt
+python3 celeba_example.py --config-file=configs/celeba_config_4bits1000.json > 4bits10003.txt

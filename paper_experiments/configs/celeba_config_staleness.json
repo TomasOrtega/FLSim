@@ -14,12 +14,6 @@
           "momentum": 0
         }
       },
-      "channel": {
-        "_base_": "base_scalar_quantization_channel",
-        "report_communication_metrics": true,
-        "n_bits": 8,
-        "quantize_per_tensor": true
-      },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
         "lr": 1000,
