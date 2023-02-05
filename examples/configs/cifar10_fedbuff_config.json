@@ -47,7 +47,7 @@
     },
     "data": {
       "local_batch_size": 32,
-      "examples_per_user": 500
+      "examples_per_user": 50
     }
   }
 }
