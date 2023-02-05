@@ -25,7 +25,9 @@
         "lr": 0.049,
         "momentum": 0.5,
         "buffer_size": 10,
-        "hidden_state": true
+        "hidden_state": true,        
+        "broadcast_channel_type": "qsgd",
+        "broadcast_channel_bits": 8
       },
       "training_event_generator": {
         "_base_": "base_async_training_event_generator",
