@@ -115,7 +115,7 @@ class AsyncAggregator:
         self._quantization_state: IFLModel = FLModelParamUtils.clone(self._global_model)
         self.server_to_broadcast_channel = IdentityChannel()
         if self.cfg.hidden_state:
-            if self.broadcast_channel_type == "qsgd":
+            if self.cfg.broadcast_channel_type == "qsgd":
                 self.server_to_broadcast_channel = ScalarQuantizationChannel(n_bits=self.cfg.broadcast_channel_bits)
             else:
                 self.server_to_broadcast_channel = SparseMaskChannel(sparsity_method = "topk", proportion_of_zero_weights = 0.1)
