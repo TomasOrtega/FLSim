@@ -46,8 +46,8 @@
       "report_train_metrics_after_aggregation": true
     },
     "data": {
-      "local_batch_size": 32,
-      "examples_per_user": 50
+      "local_batch_size": 10,
+      "examples_per_user": 10
     }
   }
 }
