@@ -2,7 +2,7 @@
   "config": {
     "trainer": {
       "_base_": "base_async_trainer",
-      "epochs": 100,
+      "epochs": 50,
       "train_metrics_reported_per_epoch": 1,
       "always_keep_trained_model": false,
       "client": {
