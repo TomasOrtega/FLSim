@@ -17,12 +17,10 @@ With this tutorial, you will learn the following key components of FLSim:
 """
 import random
 
-from tqdm import tqdm
 import flsim.configs  # noqa
 import hydra
 import torch
 from typing import Any, Dict, Generator, Iterable, Iterator, List, Optional, Tuple
-from flsim.data.data_provider import IFLDataProvider, IFLUserData
 
 from flsim.data.data_sharder import FLDataSharder, SequentialSharder, PowerLawSharder
 from flsim.interfaces.data_loader import IFLDataLoader
@@ -33,7 +31,7 @@ from flsim.utils.example_utils import (
     FLModel,
     MetricsReporter,
     SimpleConvNet,
-    UserData,
+    DataProvider,
 )
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -46,55 +44,6 @@ def collate_fn(batch: Tuple) -> Dict[str, Any]:
     return {"features": feature, "labels": label}
 
 IMAGE_SIZE = 32
-
-class DataProvider(IFLDataProvider):
-    def __init__(self, data_loader):
-        self.data_loader = data_loader
-        self._train_users = self._create_fl_users(
-            data_loader.fl_train_set(), eval_split=0.0
-        )
-        self._eval_users = self._create_fl_users(
-            data_loader.fl_eval_set(), eval_split=1.0
-        )
-        self._test_users = self._create_fl_users(
-            data_loader.fl_test_set(), eval_split=1.0
-        )
-
-    def train_user_ids(self) -> List[int]:
-        return list(self._train_users.keys())
-
-    def num_train_users(self) -> int:
-        return len(self._train_users)
-
-    def get_train_user(self, user_index: int) -> IFLUserData:
-        if user_index in self._train_users:
-            return self._train_users[user_index]
-        else:
-            raise IndexError(
-                f"Index {user_index} is out of bound for list with len {self.num_train_users()}"
-            )
-
-    def train_users(self) -> Iterable[IFLUserData]:
-        for user_data in self._train_users.values():
-            yield user_data
-
-    def eval_users(self) -> Iterable[IFLUserData]:
-        for user_data in self._eval_users.values():
-            yield user_data
-
-    def test_users(self) -> Iterable[IFLUserData]:
-        for user_data in self._test_users.values():
-            yield user_data
-
-    def _create_fl_users(
-        self, iterator: Iterator, eval_split: float = 0.0
-    ) -> Dict[int, IFLUserData]:
-        return {
-            user_index: UserData(user_data, eval_split=eval_split)
-            for user_index, user_data in tqdm(
-                enumerate(iterator), desc="Creating FL User", unit="user"
-            )
-        }
 
 class DataLoader(IFLDataLoader):
     SEED = 2137
@@ -142,7 +91,7 @@ class DataLoader(IFLDataLoader):
     ) -> Generator[Dict[str, Generator], None, None]:
         # pyre-fixme[16]: `VisionDataset` has no attribute `__iter__`.
         data_rows: List[Dict[str, Any]] = [self.collate_fn(batch) for batch in dataset]
-        for _, (_, user_data) in enumerate(self.sharder.shard_rows(data_rows)):
+        for _, (_, user_data) in enumerate(sharder.shard_rows(data_rows)):
             batch = {}
             keys = user_data[0].keys()
             for key in keys:
