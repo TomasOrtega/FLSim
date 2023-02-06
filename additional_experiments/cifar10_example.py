@@ -55,7 +55,8 @@ class DataLoader(IFLDataLoader):
         eval_dataset: VisionDataset,
         test_dataset: VisionDataset,
         sharder_train: FLDataSharder,
-        sharder_rest: FLDataSharder,
+        sharder_test: FLDataSharder,
+        sharder_eval: FLDataSharder,
         batch_size: int,
         drop_last: bool = False,
         collate_fn=collate_fn,
@@ -67,7 +68,8 @@ class DataLoader(IFLDataLoader):
         self.batch_size = batch_size
         self.drop_last = drop_last
         self.sharder_train = sharder_train
-        self.sharder_rest = sharder_rest
+        self.sharder_test = sharder_test
+        self.sharder_eval = sharder_eval
         self.collate_fn = collate_fn
 
     def fl_train_set(self, **kwargs) -> Iterable[Dict[str, Generator]]:
@@ -76,10 +78,10 @@ class DataLoader(IFLDataLoader):
         yield from self._batchify(self.train_dataset, self.sharder_train, self.drop_last, world_size, rank)
 
     def fl_eval_set(self, **kwargs) -> Iterable[Dict[str, Generator]]:
-        yield from self._batchify(self.eval_dataset, self.sharder_rest, drop_last=False)
+        yield from self._batchify(self.eval_dataset, self.sharder_eval, drop_last=False)
 
     def fl_test_set(self, **kwargs) -> Iterable[Dict[str, Generator]]:
-        yield from self._batchify(self.test_dataset, self.sharder_rest, drop_last=False)
+        yield from self._batchify(self.test_dataset, self.sharder_test, drop_last=False)
 
     def _batchify(
         self,
@@ -124,9 +126,10 @@ def build_data_provider(local_batch_size, num_users, drop_last: bool = False):
     )
     # sharder = SequentialSharder(examples_per_shard=examples_per_user)
     sharder_train = PowerLawSharder(alpha=0.1, num_shards=num_users)
-    sharder_rest = PowerLawSharder(alpha=0.1, num_shards=int(num_users / 5)) # hacky, should be configurable in test
+    sharder_eval = PowerLawSharder(alpha=0.1, num_shards=int(num_users / 5)) # hacky, should be configurable in test
+    sharder_test = PowerLawSharder(alpha=0.1, num_shards=int(num_users / 5)) # hacky, should be configurable in test
     fl_data_loader = DataLoader(
-        train_dataset, test_dataset, test_dataset, sharder_train, sharder_rest, local_batch_size, drop_last
+        train_dataset, test_dataset, test_dataset, sharder_train, sharder_test, sharder_eval, local_batch_size, drop_last
     )
     data_provider = DataProvider(fl_data_loader)
     print(f"Clients in total: {data_provider.num_train_users()}")
