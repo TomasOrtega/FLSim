@@ -18,7 +18,7 @@ With this tutorial, you will learn the following key components of FLSim:
 import flsim.configs  # noqa
 import hydra
 import torch
-from flsim.data.data_sharder import SequentialSharder
+from flsim.data.data_sharder import SequentialSharder, PowerLawSharder
 from flsim.interfaces.metrics_reporter import Channel
 from flsim.utils.config_utils import maybe_parse_json_config
 from flsim.utils.example_utils import (
@@ -37,7 +37,7 @@ from torchvision.datasets.cifar import CIFAR10
 IMAGE_SIZE = 32
 
 
-def build_data_provider(local_batch_size, examples_per_user, drop_last: bool = False):
+def build_data_provider(local_batch_size, num_users, drop_last: bool = False):
 
     transform = transforms.Compose(
         [
@@ -53,7 +53,8 @@ def build_data_provider(local_batch_size, examples_per_user, drop_last: bool = F
     test_dataset = CIFAR10(
         root="../cifar10", train=False, download=True, transform=transform
     )
-    sharder = SequentialSharder(examples_per_shard=examples_per_user)
+    # sharder = SequentialSharder(examples_per_shard=examples_per_user)
+    sharder = PowerLawSharder(alpha=0.1, num_shards=num_users)
     fl_data_loader = DataLoader(
         train_dataset, test_dataset, test_dataset, sharder, local_batch_size, drop_last
     )
@@ -78,7 +79,7 @@ def main(
     print(f"Created {trainer_config._target_}")
     data_provider = build_data_provider(
         local_batch_size=data_config.local_batch_size,
-        examples_per_user=data_config.examples_per_user,
+        num_users=data_config.num_users,
         drop_last=False,
     )
 

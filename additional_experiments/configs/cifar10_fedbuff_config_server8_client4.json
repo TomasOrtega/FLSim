@@ -47,7 +47,7 @@
     },
     "data": {
       "local_batch_size": 10,
-      "examples_per_user": 10
+      "num_users": 5000
     }
   }
 }
