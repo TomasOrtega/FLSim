@@ -17,7 +17,7 @@ With this tutorial, you will learn the following key components of FLSim:
 """
 import random
 
-import tqdm
+from tqdm import tqdm
 import flsim.configs  # noqa
 import hydra
 import torch
