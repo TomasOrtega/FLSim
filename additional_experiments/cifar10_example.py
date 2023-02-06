@@ -15,14 +15,18 @@ With this tutorial, you will learn the following key components of FLSim:
     Typical usage example:
     python3 cifar10_example.py --config-file configs/cifar10_config.json
 """
+import random
 import flsim.configs  # noqa
 import hydra
 import torch
-from flsim.data.data_sharder import SequentialSharder, PowerLawSharder
+from typing import Any, Dict, Generator, Iterable, Iterator, List, Optional, Tuple
+
+from flsim.data.data_sharder import FLDataSharder, SequentialSharder, PowerLawSharder
+from flsim.interfaces.data_loader import IFLDataLoader
 from flsim.interfaces.metrics_reporter import Channel
 from flsim.utils.config_utils import maybe_parse_json_config
+from flsim.utils.data.data_utils import batchify
 from flsim.utils.example_utils import (
-    DataLoader,
     DataProvider,
     FLModel,
     MetricsReporter,
@@ -32,9 +36,75 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torchvision import transforms
 from torchvision.datasets.cifar import CIFAR10
+from torchvision.datasets.vision import VisionDataset
 
+
+
+def collate_fn(batch: Tuple) -> Dict[str, Any]:
+    feature, label = batch
+    return {"features": feature, "labels": label}
 
 IMAGE_SIZE = 32
+
+class DataLoader(IFLDataLoader):
+    SEED = 2137
+    random.seed(SEED)
+
+    def __init__(
+        self,
+        train_dataset: VisionDataset,
+        eval_dataset: VisionDataset,
+        test_dataset: VisionDataset,
+        sharder_train: FLDataSharder,
+        sharder_rest: FLDataSharder,
+        batch_size: int,
+        drop_last: bool = False,
+        collate_fn=collate_fn,
+    ):
+        assert batch_size > 0, "Batch size should be a positive integer."
+        self.train_dataset = train_dataset
+        self.eval_dataset = eval_dataset
+        self.test_dataset = test_dataset
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        self.sharder_train = sharder_train
+        self.sharder_rest = sharder_rest
+        self.collate_fn = collate_fn
+
+    def fl_train_set(self, **kwargs) -> Iterable[Dict[str, Generator]]:
+        rank = kwargs.get("rank", 0)
+        world_size = kwargs.get("world_size", 1)
+        yield from self._batchify(self.train_dataset, self.sharder_train, self.drop_last, world_size, rank)
+
+    def fl_eval_set(self, **kwargs) -> Iterable[Dict[str, Generator]]:
+        yield from self._batchify(self.eval_dataset, self.sharder_rest, drop_last=False)
+
+    def fl_test_set(self, **kwargs) -> Iterable[Dict[str, Generator]]:
+        yield from self._batchify(self.test_dataset, self.sharder_rest, drop_last=False)
+
+    def _batchify(
+        self,
+        dataset: VisionDataset,
+        sharder: FLDataSharder,
+        drop_last: bool = False,
+        world_size: int = 1,
+        rank: int = 0,
+    ) -> Generator[Dict[str, Generator], None, None]:
+        # pyre-fixme[16]: `VisionDataset` has no attribute `__iter__`.
+        data_rows: List[Dict[str, Any]] = [self.collate_fn(batch) for batch in dataset]
+        for _, (_, user_data) in enumerate(self.sharder.shard_rows(data_rows)):
+            batch = {}
+            keys = user_data[0].keys()
+            for key in keys:
+                attribute = {
+                    key: batchify(
+                        [row[key] for row in user_data],
+                        self.batch_size,
+                        drop_last,
+                    )
+                }
+                batch = {**batch, **attribute}
+            yield batch
 
 
 def build_data_provider(local_batch_size, num_users, drop_last: bool = False):
@@ -54,9 +124,10 @@ def build_data_provider(local_batch_size, num_users, drop_last: bool = False):
         root="../cifar10", train=False, download=True, transform=transform
     )
     # sharder = SequentialSharder(examples_per_shard=examples_per_user)
-    sharder = PowerLawSharder(alpha=0.1, num_shards=num_users)
+    sharder_train = PowerLawSharder(alpha=0.1, num_shards=num_users)
+    sharder_rest = PowerLawSharder(alpha=0.1, num_shards=int(num_users / 5)) # hacky, should be configurable in test
     fl_data_loader = DataLoader(
-        train_dataset, test_dataset, test_dataset, sharder, local_batch_size, drop_last
+        train_dataset, test_dataset, test_dataset, sharder_train, sharder_rest, local_batch_size, drop_last
     )
     data_provider = DataProvider(fl_data_loader)
     print(f"Clients in total: {data_provider.num_train_users()}")
