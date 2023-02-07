@@ -2,7 +2,7 @@
   "config": {
     "trainer": {
       "_base_": "base_async_trainer",
-      "epochs": 25,
+      "epochs": 40,
       "train_metrics_reported_per_epoch": 1,
       "always_keep_trained_model": false,
       "client": {
@@ -26,18 +26,25 @@
         "buffer_size": 10,
         "hidden_state": true,        
         "broadcast_channel_type": "qsgd",
-        "broadcast_channel_bits": 8
+        "broadcast_channel_bits": 4
       },
       "training_event_generator": {
         "_base_": "base_async_training_event_generator",
         "training_start_time_distribution": {
           "_base_": "base_constant_training_start_time_distribution",
-          "training_rate": 100
+          "training_rate": 1253
         },
         "duration_distribution_generator": {
           "_base_": "base_per_user_half_normal_duration_distribution",
           "training_duration_sd": 1,
           "training_duration_min": 0
+        }
+      },
+      "async_weight": {
+        "_base_": "base_async_weight",
+        "staleness_weight": {
+          "_base_": "base_polynomial_staleness_weight",
+          "exponent": 0.5
         }
       },
       "report_train_metrics": true,

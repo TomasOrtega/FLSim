@@ -2,7 +2,7 @@
   "config": {
     "trainer": {
       "_base_": "base_async_trainer",
-      "epochs": 25,
+      "epochs": 20,
       "train_metrics_reported_per_epoch": 1,
       "always_keep_trained_model": false,
       "client": {
@@ -13,31 +13,32 @@
           "momentum": 0
         }
       },
-      "channel": {
-        "_base_": "base_scalar_quantization_channel",
-        "report_communication_metrics": true,
-        "n_bits": 2,
-        "quantize_per_tensor": true
-      },
       "aggregator": {
         "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
         "lr": 40.9,
         "momentum": 0.0,
         "buffer_size": 10,
-        "hidden_state": true,        
+        "hidden_state": false,        
         "broadcast_channel_type": "qsgd",
-        "broadcast_channel_bits": 4
+        "broadcast_channel_bits": 8
       },
       "training_event_generator": {
         "_base_": "base_async_training_event_generator",
         "training_start_time_distribution": {
           "_base_": "base_constant_training_start_time_distribution",
-          "training_rate": 100
+          "training_rate": 627
         },
         "duration_distribution_generator": {
           "_base_": "base_per_user_half_normal_duration_distribution",
           "training_duration_sd": 1,
           "training_duration_min": 0
+        }
+      },
+      "async_weight": {
+        "_base_": "base_async_weight",
+        "staleness_weight": {
+          "_base_": "base_polynomial_staleness_weight",
+          "exponent": 0.5
         }
       },
       "report_train_metrics": true,
