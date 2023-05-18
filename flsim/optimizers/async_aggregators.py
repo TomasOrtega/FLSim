@@ -118,7 +118,7 @@ class AsyncAggregator:
             if self.cfg.broadcast_channel_type == "qsgd":
                 self.server_to_broadcast_channel = ScalarQuantizationChannel(n_bits=self.cfg.broadcast_channel_bits)
             else:
-                self.server_to_broadcast_channel = SparseMaskChannel(sparsity_method = "topk", proportion_of_zero_weights = 0.1)
+                self.server_to_broadcast_channel = SparseMaskChannel(sparsity_method = "topk", proportion_of_zero_weights = 0.9)
             # TODO -- change for each experiment, with the identity channel we recover FedBuff (if there is no client quantization)
         self._reconstructed_grad: IFLModel = FLModelParamUtils.clone(self._global_model)
         # there is no concept of a round in async, hence round reducer is not tied to a round
