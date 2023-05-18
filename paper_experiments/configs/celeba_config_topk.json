@@ -25,7 +25,7 @@
         "lr": 1000,
         "momentum": 0.3,
         "buffer_size": 10,
-        "hidden_state": true,        
+        "hidden_state": true,
         "broadcast_channel_type": "topk"
       },
       "training_event_generator": {
