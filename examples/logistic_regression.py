@@ -42,9 +42,10 @@ logistic_regression_model = SGDClassifier(
     loss="log_loss",
     penalty="l2",
     alpha=l2_strength,
-    max_iter=50000,
-    tol=0,
 )
+# max_iter=50000,
+#    tol=0,
+# )
 
 # Compute baseline
 # Only fit the model once, as cost doesn't change over iterations
@@ -68,19 +69,27 @@ n_clients = 50
 data_clients = np.array_split(data, n_clients)
 labels_clients = np.array_split(target, n_clients)
 
-global my_counter
-my_counter = 0
+global current_time
+current_time = 0
 
 
 def my_fake_delay():
-    global my_counter
-    my_counter += 1
-    return my_counter
+    return n_clients
+
+
+delays = [np.abs(np.random.normal()) for _ in range(n_clients)]
 
 
 # Function to model client delays
-def get_client_delay():
-    return np.abs(np.random.normal())
+def get_client_delay(client=None):
+    delay = 0
+
+    if client is not None:
+        delay = delays[client]
+    else:
+        delay = np.abs(np.random.normal())
+
+    return delay
     # return my_fake_delay()
 
 
@@ -110,7 +119,10 @@ def train_client(priority_queue, weights, client, n_local_steps, lr):
     # Calculate the difference in weights
     delta_weights = weights - original_weights
 
-    priority_queue.put((get_client_delay(), client, delta_weights))
+    # Get the client delay
+    client_delay = get_client_delay()
+
+    priority_queue.put((current_time + client_delay, client, delta_weights))
 
 
 def fill_server_buffer(
@@ -126,8 +138,10 @@ def fill_server_buffer(
 
     # Fill the buffer
     for _ in range(server_buffer_size):
+        global current_time
+
         # Get the next model from the queue
-        _, client, client_delta = priority_queue.get()
+        current_time, client, client_delta = priority_queue.get()
 
         # Update the auxiliary model with the client model
         aux_model += client_delta
@@ -149,10 +163,10 @@ def run_experiment(n_local_steps):
     priority_queue = queue.PriorityQueue()
 
     # Define the client learning rate
-    client_lr = 0.01
+    client_lr = 0.1
 
     # Define the number of global training steps
-    n_global_steps = 500
+    n_global_steps = 1000
 
     # Define the server buffer size
     server_buffer_size = 10
@@ -167,7 +181,7 @@ def run_experiment(n_local_steps):
         )
 
     # Define a server learning rate
-    server_lr = 0.01
+    server_lr = 0.1
 
     # Initialize loss_values
     loss_values = []
@@ -188,7 +202,7 @@ def run_experiment(n_local_steps):
 
 
 # Run the experiment for different values of n_local_steps
-local_steps_values = [1, 4, 16]
+local_steps_values = [1, 4, 16, 16 * 4]
 loss_values = []
 for local_steps in local_steps_values:
     # Fix seed for reproducibility
@@ -199,7 +213,7 @@ for local_steps in local_steps_values:
 # Export the experiment results to a CSV file
 import csv
 
-with open("logistic_regression_averaging.csv", "w", newline="") as csvfile:
+with open("logistic_regression.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
     writer.writerow(["n_local_steps", "global_step", "loss"])
     for i in range(len(local_steps_values)):
@@ -207,7 +221,7 @@ with open("logistic_regression_averaging.csv", "w", newline="") as csvfile:
             writer.writerow([local_steps_values[i], j, loss_values[i][j]])
 
 # Also save the baseline loss
-with open("logistic_regression_averaging_baseline.csv", "w", newline="") as csvfile:
+with open("logistic_regression_baseline.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
     writer.writerow(["baseline_loss"])
     writer.writerow([baseline_loss])
@@ -225,4 +239,4 @@ plt.xlabel("Global round")
 plt.ylabel("Loss suboptimality")
 plt.yscale("log")
 plt.legend()
-plt.savefig("logistic_regression_averaging.png")
+plt.savefig("logistic_regression.png")
