@@ -1,3 +1,4 @@
+import csv
 import queue
 from tqdm import tqdm  # Import tqdm
 from sklearn.datasets import load_svmlight_file
@@ -6,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import SGDClassifier
 import urllib.request
+# from numba import njit
 
 
 def loss(weights, X, y, reg):
@@ -42,6 +44,7 @@ logistic_regression_model = SGDClassifier(
     loss="log_loss",
     penalty="l2",
     alpha=l2_strength,
+    verbose=1,
 )
 # max_iter=50000,
 #    tol=0,
@@ -92,13 +95,11 @@ def get_client_delay(client=None):
     return delay
     # return my_fake_delay()
 
+# @njit
 
-# Define a function for training a client
-def train_client(priority_queue, weights, client, n_local_steps, lr):
-    original_weights = weights.copy()
-    data_client = data_clients[client]
-    labels_client = labels_clients[client]
-    for _ in range(n_local_steps):  # Train for a fixed number of iterations
+
+def local_training(n_local_steps, lr, weights, data_client, labels_client):
+    for t in range(n_local_steps):
         # Calculate the logits (raw model output)
         logits = np.dot(data_client, weights)
 
@@ -115,7 +116,17 @@ def train_client(priority_queue, weights, client, n_local_steps, lr):
 
         # Update the weights using gradient descent
         weights -= lr * gradient
+    return weights
 
+# Function to train a client
+
+
+def train_client(priority_queue, weights, client, n_local_steps, lr):
+    original_weights = weights.copy()
+    data_client = data_clients[client]
+    labels_client = labels_clients[client]
+    weights = local_training(n_local_steps, lr, weights,
+                             data_client, labels_client)
     # Calculate the difference in weights
     delta_weights = weights - original_weights
 
@@ -211,7 +222,6 @@ for local_steps in local_steps_values:
 
 
 # Export the experiment results to a CSV file
-import csv
 
 with open("logistic_regression.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
@@ -227,7 +237,6 @@ with open("logistic_regression_baseline.csv", "w", newline="") as csvfile:
     writer.writerow([baseline_loss])
 
 # Plot the results
-import matplotlib.pyplot as plt
 
 plt.figure(figsize=(12, 8))
 for i in range(len(local_steps_values)):
@@ -240,3 +249,4 @@ plt.ylabel("Loss suboptimality")
 plt.yscale("log")
 plt.legend()
 plt.savefig("logistic_regression.png")
+# plt.show()
