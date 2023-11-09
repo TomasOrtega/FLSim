@@ -151,7 +151,7 @@ for local_steps in local_steps_values:
 # Export the experiment results to a CSV file
 import csv
 
-with open("logistic_regression.csv", "w", newline="") as csvfile:
+with open("logistic_regression_averaging.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
     writer.writerow(["n_local_steps", "global_step", "loss"])
     for i in range(len(local_steps_values)):
@@ -159,7 +159,7 @@ with open("logistic_regression.csv", "w", newline="") as csvfile:
             writer.writerow([local_steps_values[i], j, loss_values[i][j]])
 
 # Also save the baseline loss
-with open("logistic_regression_baseline.csv", "w", newline="") as csvfile:
+with open("logistic_regression_averaging_baseline.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
     writer.writerow(["baseline_loss"])
     writer.writerow([baseline_loss])
@@ -177,4 +177,4 @@ plt.xlabel("Global round")
 plt.ylabel("Loss suboptimality")
 plt.yscale("log")
 plt.legend()
-plt.savefig("logistic_regression.png")
+plt.savefig("logistic_regression_averaging.png")
