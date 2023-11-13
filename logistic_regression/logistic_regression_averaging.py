@@ -1,21 +1,16 @@
 import csv
-import queue
 from tqdm import tqdm  # Import tqdm
 from sklearn.datasets import load_svmlight_file
 import urllib.request
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.linear_model import SGDClassifier
+import scipy.optimize
 import urllib.request
 from sklearn.metrics import log_loss
 from scipy.special import expit as sigmoid
+import log_reg_utils
 
 
-def loss(weights, X, y, reg):
-    probabilities = sigmoid(np.dot(X, weights))
-    res = log_loss(y, probabilities)
-    res += reg * np.square(weights).sum() / 2
-    return res
 
 
 # Set the random seed for reproducible results
@@ -40,29 +35,29 @@ n, d = data.shape
 # Set the L2 regularization strength
 l2_strength = 1.0 / n
 
-# Create a Logistic Regression model with L2 penalty (ridge) and the specified regularization strength
-logistic_regression_model = SGDClassifier(
-    loss="log_loss",
-    penalty="l2",
-    alpha=l2_strength,
-    max_iter=50000,
-    tol=0,
-)
-
-# Compute baseline
-# Only fit the model once, as cost doesn't change over iterations
-logistic_regression_model.fit(data, target)
-
-# Calculate the logistic loss (cross-entropy loss)
-baseline_loss = loss(
-    logistic_regression_model.coef_.transpose(), data, target, l2_strength
-)
-
 # Add a bias term (intercept) to the data
 data = np.hstack((np.ones((n, 1)), data))
 
 # Initialize the logistic regression weights
 weights = np.zeros(d + 1)
+
+# Initial guess for the optimizer
+initial_weights = log_reg_utils.OPTIMAL_WEIGHTS
+
+# Use a black-box optimizer to find the baseline loss, with display set to True to print the convergence log
+baseline_loss = scipy.optimize.minimize(
+    log_reg_utils.loss, initial_weights,
+    args=(data, target, l2_strength),
+    jac=log_reg_utils.loss_grad,
+    tol=0,
+    options={"disp": True}
+).fun
+
+# Save the baseline loss to a CSV file
+with open("results/logistic_regression_baseline.csv", "w", newline="") as csvfile:
+    writer = csv.writer(csvfile, delimiter=",")
+    writer.writerow(["baseline_loss"])
+    writer.writerow([baseline_loss])
 
 # Number of clients
 n_clients = 1
@@ -77,19 +72,9 @@ def train_client(weights, client, n_local_steps, lr):
     data_client = data_clients[client]
     labels_client = labels_clients[client]
     for _ in range(n_local_steps):  # Train for a fixed number of iterations
-        # Calculate the probabilities using the sigmoid
-        probabilities = sigmoid(np.dot(data_client, weights))
-
-        # Calculate the gradient of the cost function with L2 regularization
-        gradient = np.dot(data_client.T, (probabilities - labels_client)) / len(
-            labels_client
-        )
-
-        # Add the L2 regularization term
-        gradient += l2_strength * weights
-
         # Update the weights using gradient descent
-        weights -= lr * gradient
+        weights -= lr * log_reg_utils.loss_grad(weights, data_client,
+                                  labels_client, l2_strength)
 
     return weights
 
@@ -112,15 +97,15 @@ def fill_server_buffer(
     global_model = aux_model / n_clients
 
     # Return the logistic loss (cost function) for the current weights
-    return (loss(global_model, data, target, l2_strength), global_model)
+    return (log_reg_utils.loss(global_model, data, target, l2_strength), global_model)
 
 
 def run_experiment(n_local_steps):
     # Define the client learning rate
-    client_lr = 0.1
+    client_lr = 1
 
     # Define the number of global training steps
-    n_global_steps = 1000
+    n_global_steps = 25000
 
     # Define a global model
     global_model = np.zeros(d + 1)
@@ -140,40 +125,20 @@ def run_experiment(n_local_steps):
     return loss_values
 
 
-# Run the experiment for different values of n_local_steps
-local_steps_values = [1, 16, 32]
+# Run the experiment for different values of n_local_steps, while saving to a CSV file
+local_steps_values = [1, 4, 16]
 loss_values = []
-for local_steps in local_steps_values:
-    # Fix seed for reproducibility
-    np.random.seed(0)
-    loss_values.append(run_experiment(local_steps))
-
-
-# Export the experiment results to a CSV file
-
-with open("logistic_regression_averaging.csv", "w", newline="") as csvfile:
+with open("results/logistic_regression_averaging.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
     writer.writerow(["n_local_steps", "global_step", "loss"])
-    for i in range(len(local_steps_values)):
-        for j in range(len(loss_values[i])):
-            writer.writerow([local_steps_values[i], j, loss_values[i][j]])
-
-# Also save the baseline loss
-with open("logistic_regression_averaging_baseline.csv", "w", newline="") as csvfile:
-    writer = csv.writer(csvfile, delimiter=",")
-    writer.writerow(["baseline_loss"])
-    writer.writerow([baseline_loss])
+    for local_steps in local_steps_values:
+        # Fix seed for reproducibility
+        np.random.seed(0)
+        loss_values.append(run_experiment(local_steps))
+        [writer.writerow([local_steps, i, loss_values[-1][i]])
+         for i in range(len(loss_values[-1]))]
 
 # Plot the results
 
-plt.figure(figsize=(12, 8))
-for i in range(len(local_steps_values)):
-    plt.plot(
-        loss_values[i] - baseline_loss,
-        label=f"n_local_steps={local_steps_values[i]}",
-    )
-plt.xlabel("Global round")
-plt.ylabel("Loss suboptimality")
-plt.yscale("log")
-plt.legend()
-plt.savefig("logistic_regression_averaging.png")
+fig = log_reg_utils.plot_losses(local_steps_values, loss_values, baseline_loss)
+plt.savefig("results/logistic_regression_averaging.png")

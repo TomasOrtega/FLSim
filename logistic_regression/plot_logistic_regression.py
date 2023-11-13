@@ -1,12 +1,18 @@
+import scienceplots
+import matplotlib
+from matplotlib import pyplot as plt
 import csv
 import numpy as np
 
+# filename = "logistic_regression.csv"
+filename = "results/logistic_regression_averaging.csv"
+baseline_filename = "results/logistic_regression_baseline.csv"
 
 n_local_steps = []
 local_steps_values = []
 loss_values = []
 # Import the experiment results from a CSV file
-with open("logistic_regression.csv", newline="") as csvfile:
+with open(filename, newline="") as csvfile:
     reader = csv.reader(csvfile, delimiter=",")
     next(reader)  # Skip the header
     for row in reader:
@@ -21,29 +27,35 @@ with open("logistic_regression.csv", newline="") as csvfile:
 
 baseline_loss = 0
 # Import the baseline loss
-with open("logistic_regression_baseline.csv", newline="") as csvfile:
+with open(baseline_filename, newline="") as csvfile:
     reader = csv.reader(csvfile, delimiter=",")
     next(reader)  # Skip the header
     baseline_loss = float(next(reader)[0])
 
-from matplotlib import pyplot as plt
-import matplotlib
-import scienceplots
 plt.style.use('ieee')
 # Avoid Type 3 fonts for IEEE publications (switch to True)
 matplotlib.rcParams['text.usetex'] = True
 
 # Plot the results
 
+min_losses = np.min(loss_values)
+if min_losses < baseline_loss:
+    print("WARNING: The baseline loss is higher than the minimum loss.")
+    baseline_loss = min_losses
+
+markers = [',', 'o', '^', '*', 'd', 's', 'X', 'P', '.', 6, 7]
 fig = plt.figure()
 for i in range(len(local_steps_values)):
     plt.plot(
         np.array(loss_values[i]) - baseline_loss,
         label=f"{local_steps_values[i]} local steps",
+        marker=markers[i],
+        markevery=int(len(loss_values[i])/10),
+        linestyle="solid",
     )
 plt.xlabel("Global model iteration")
 plt.ylabel(r"$f(x) - f^*$")
 plt.yscale("log")
 plt.legend()
 plt.tight_layout()
-fig.savefig("logistic_regression.pdf")
+fig.savefig(filename[:-4] + ".pdf")
