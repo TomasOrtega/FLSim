@@ -1,3 +1,6 @@
+import scienceplots
+import matplotlib
+from matplotlib import pyplot as plt
 import csv
 import numpy as np
 
@@ -26,20 +29,21 @@ with open("logistic_regression_baseline.csv", newline="") as csvfile:
     next(reader)  # Skip the header
     baseline_loss = float(next(reader)[0])
 
-from matplotlib import pyplot as plt
-import matplotlib
-import scienceplots
 plt.style.use('ieee')
 # Avoid Type 3 fonts for IEEE publications (switch to True)
 matplotlib.rcParams['text.usetex'] = True
 
 # Plot the results
 
+markers = ["o", "s", "^"]
 fig = plt.figure()
 for i in range(len(local_steps_values)):
     plt.plot(
-        np.array(loss_values[i]) - baseline_loss,
+        loss_values[i] - baseline_loss,
         label=f"{local_steps_values[i]} local steps",
+        marker=markers[i],
+        markevery=int(len(loss_values[i])/10),
+        linestyle="solid",
     )
 plt.xlabel("Global model iteration")
 plt.ylabel(r"$f(x) - f^*$")

@@ -237,11 +237,15 @@ with open("logistic_regression_baseline.csv", "w", newline="") as csvfile:
 
 # Plot the results
 
+markers = ["o", "s", "^"]
 plt.figure(figsize=(12, 8))
 for i in range(len(local_steps_values)):
     plt.plot(
         loss_values[i] - baseline_loss,
         label=f"n_local_steps={local_steps_values[i]}",
+        marker=markers[i],
+        markevery=int(len(loss_values[i])/10),
+        linestyle="solid",
     )
 plt.xlabel("Global round")
 plt.ylabel("Loss suboptimality")
