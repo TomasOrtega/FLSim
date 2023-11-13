@@ -4,8 +4,8 @@ from matplotlib import pyplot as plt
 import csv
 import numpy as np
 
-# filename = "logistic_regression.csv"
-filename = "results/logistic_regression_averaging.csv"
+filename = "results/logistic_regression.csv"
+# filename = "results/logistic_regression_averaging.csv"
 baseline_filename = "results/logistic_regression_baseline.csv"
 
 n_local_steps = []
@@ -36,13 +36,13 @@ plt.style.use('ieee')
 # Avoid Type 3 fonts for IEEE publications (switch to True)
 matplotlib.rcParams['text.usetex'] = True
 
-# Plot the results
-
-min_losses = np.min(loss_values)
+# Get the minimum loss, written to be able to plot during experiment run
+min_losses = np.min([min(loss_values[i] for i in range(len(loss_values)))])
 if min_losses < baseline_loss:
     print("WARNING: The baseline loss is higher than the minimum loss.")
     baseline_loss = min_losses
 
+# Plot the results
 markers = [',', 'o', '^', '*', 'd', 's', 'X', 'P', '.', 6, 7]
 fig = plt.figure()
 for i in range(len(local_steps_values)):

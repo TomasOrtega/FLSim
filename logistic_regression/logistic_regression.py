@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import urllib.request
 import scipy.optimize
-import log_reg_utils
-# from numba import njit
+from log_reg_utils import loss, loss_grad, OPTIMAL_WEIGHTS, plot_losses
 
 
 # Set the random seed for reproducible results
@@ -41,7 +40,7 @@ weights = np.zeros(d + 1)
 
 # Use a black-box optimizer to find the baseline loss, with display set to True to print the convergence log
 baseline_loss = scipy.optimize.minimize(
-    log_reg_utils.loss, log_reg_utils.OPTIMAL_WEIGHTS,
+    loss, OPTIMAL_WEIGHTS,
     args=(data, target, l2_strength),
     options={"disp": True}
 ).fun
@@ -82,14 +81,14 @@ def get_client_delay(client=None):
     return delay
     # return my_fake_delay()
 
-# @njit
+
 
 
 def local_training(n_local_steps, lr, weights, data_client, labels_client):
     for t in range(n_local_steps):
         # Update the weights using gradient descent
-        weights -= lr * log_reg_utils.loss_grad(weights, data_client,
-                                                labels_client, l2_strength)
+        weights -= lr * loss_grad(weights, data_client,
+                                  labels_client, l2_strength)
     return weights
 
 # Function to train a client
@@ -140,7 +139,7 @@ def fill_server_buffer(
     global_model += server_lr / server_buffer_size * aux_model
 
     # Return the logistic loss (cost function) for the current weights
-    return log_reg_utils.loss(global_model, data, target, l2_strength)
+    return loss(global_model, data, target, l2_strength)
 
 
 def run_experiment(n_local_steps):
@@ -200,7 +199,7 @@ with open("results/logistic_regression.csv", "w", newline="") as csvfile:
          for i in range(len(loss_values[-1]))]
 
 # Plot the results
-fig = log_reg_utils.plot_losses(local_steps_values, loss_values, baseline_loss)
+fig = plot_losses(local_steps_values, loss_values, baseline_loss)
 
 plt.savefig("results/logistic_regression.png")
 # plt.show()

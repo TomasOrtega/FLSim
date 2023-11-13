@@ -6,12 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize
 import urllib.request
-from sklearn.metrics import log_loss
-from scipy.special import expit as sigmoid
-import log_reg_utils
-
-
-
+from log_reg_utils import loss, loss_grad, OPTIMAL_WEIGHTS, plot_losses
 
 # Set the random seed for reproducible results
 np.random.seed(0)
@@ -42,13 +37,13 @@ data = np.hstack((np.ones((n, 1)), data))
 weights = np.zeros(d + 1)
 
 # Initial guess for the optimizer
-initial_weights = log_reg_utils.OPTIMAL_WEIGHTS
+initial_weights = OPTIMAL_WEIGHTS
 
 # Use a black-box optimizer to find the baseline loss, with display set to True to print the convergence log
 baseline_loss = scipy.optimize.minimize(
-    log_reg_utils.loss, initial_weights,
+    loss, initial_weights,
     args=(data, target, l2_strength),
-    jac=log_reg_utils.loss_grad,
+    jac=loss_grad,
     tol=0,
     options={"disp": True}
 ).fun
@@ -73,7 +68,7 @@ def train_client(weights, client, n_local_steps, lr):
     labels_client = labels_clients[client]
     for _ in range(n_local_steps):  # Train for a fixed number of iterations
         # Update the weights using gradient descent
-        weights -= lr * log_reg_utils.loss_grad(weights, data_client,
+        weights -= lr * loss_grad(weights, data_client,
                                   labels_client, l2_strength)
 
     return weights
@@ -97,7 +92,7 @@ def fill_server_buffer(
     global_model = aux_model / n_clients
 
     # Return the logistic loss (cost function) for the current weights
-    return (log_reg_utils.loss(global_model, data, target, l2_strength), global_model)
+    return (loss(global_model, data, target, l2_strength), global_model)
 
 
 def run_experiment(n_local_steps):
@@ -140,5 +135,5 @@ with open("results/logistic_regression_averaging.csv", "w", newline="") as csvfi
 
 # Plot the results
 
-fig = log_reg_utils.plot_losses(local_steps_values, loss_values, baseline_loss)
+fig = plot_losses(local_steps_values, loss_values, baseline_loss)
 plt.savefig("results/logistic_regression_averaging.png")

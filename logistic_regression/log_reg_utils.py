@@ -1,7 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+# from numba import njit
 
 OPTIMAL_WEIGHTS = np.array([-1.56078757e-01, -5.28758919e-01, -2.67212685e-01, -3.98851510e-02,
                             2.99904413e-02, 5.66867597e-01, 8.29199598e-02, 8.26821995e-02,
