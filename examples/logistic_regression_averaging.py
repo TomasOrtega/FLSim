@@ -1,3 +1,4 @@
+import csv
 import queue
 from tqdm import tqdm  # Import tqdm
 from sklearn.datasets import load_svmlight_file
@@ -6,13 +7,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import SGDClassifier
 import urllib.request
+from sklearn.metrics import log_loss
+from scipy.special import expit as sigmoid
 
 
 def loss(weights, X, y, reg):
-    raw_scores = -y * np.dot(X, weights).squeeze()
-    baseline_loss = np.mean(np.logaddexp(0, raw_scores))
-    baseline_loss += reg * np.sum(np.square(weights)) / 2
-    return baseline_loss
+    probabilities = sigmoid(np.dot(X, weights))
+    res = log_loss(y, probabilities)
+    res += reg * np.square(weights).sum() / 2
+    return res
 
 
 # Set the random seed for reproducible results
@@ -74,11 +77,8 @@ def train_client(weights, client, n_local_steps, lr):
     data_client = data_clients[client]
     labels_client = labels_clients[client]
     for _ in range(n_local_steps):  # Train for a fixed number of iterations
-        # Calculate the logits (raw model output)
-        logits = np.dot(data_client, weights)
-
-        # Calculate the probabilities using the logistic function
-        probabilities = 1 / (1 + np.exp(-logits))
+        # Calculate the probabilities using the sigmoid
+        probabilities = sigmoid(np.dot(data_client, weights))
 
         # Calculate the gradient of the cost function with L2 regularization
         gradient = np.dot(data_client.T, (probabilities - labels_client)) / len(
@@ -105,7 +105,8 @@ def fill_server_buffer(
     # Fill the buffer
     for client in range(n_clients):
         # Update the auxiliary model with the client model
-        aux_model += train_client(global_model.copy(), client, n_local_steps, client_lr)
+        aux_model += train_client(global_model.copy(),
+                                  client, n_local_steps, client_lr)
 
     # Update the global model with the server learning rate
     global_model = aux_model / n_clients
@@ -149,7 +150,6 @@ for local_steps in local_steps_values:
 
 
 # Export the experiment results to a CSV file
-import csv
 
 with open("logistic_regression_averaging.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")
@@ -165,7 +165,6 @@ with open("logistic_regression_averaging_baseline.csv", "w", newline="") as csvf
     writer.writerow([baseline_loss])
 
 # Plot the results
-import matplotlib.pyplot as plt
 
 plt.figure(figsize=(12, 8))
 for i in range(len(local_steps_values)):

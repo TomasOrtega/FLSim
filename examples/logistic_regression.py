@@ -7,14 +7,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import SGDClassifier
 import urllib.request
+from sklearn.metrics import log_loss
+from scipy.special import expit as sigmoid
 # from numba import njit
 
 
 def loss(weights, X, y, reg):
-    raw_scores = -y * np.dot(X, weights).squeeze()
-    baseline_loss = np.mean(np.logaddexp(0, raw_scores))
-    baseline_loss += reg * np.sum(np.square(weights)) / 2
-    return baseline_loss
+    probabilities = sigmoid(np.dot(X, weights))
+    res = log_loss(y, probabilities)
+    res += reg * np.square(weights).sum() / 2
+    return res
 
 
 # Set the random seed for reproducible results
@@ -100,11 +102,8 @@ def get_client_delay(client=None):
 
 def local_training(n_local_steps, lr, weights, data_client, labels_client):
     for t in range(n_local_steps):
-        # Calculate the logits (raw model output)
-        logits = np.dot(data_client, weights)
-
-        # Calculate the probabilities using the logistic function
-        probabilities = 1 / (1 + np.exp(-logits))
+        # Calculate the probabilities using the sigmoid
+        probabilities = sigmoid(np.dot(data_client, weights))
 
         # Calculate the gradient of the cost function with L2 regularization
         gradient = np.dot(data_client.T, (probabilities - labels_client)) / len(
@@ -177,7 +176,7 @@ def run_experiment(n_local_steps):
     client_lr = 0.1
 
     # Define the number of global training steps
-    n_global_steps = 1000
+    n_global_steps = 5000
 
     # Define the server buffer size
     server_buffer_size = 10
@@ -192,7 +191,7 @@ def run_experiment(n_local_steps):
         )
 
     # Define a server learning rate
-    server_lr = 0.1
+    server_lr = 1
 
     # Initialize loss_values
     loss_values = []
@@ -213,7 +212,7 @@ def run_experiment(n_local_steps):
 
 
 # Run the experiment for different values of n_local_steps
-local_steps_values = [1, 4, 16, 16 * 4]
+local_steps_values = [1, 4, 16]
 loss_values = []
 for local_steps in local_steps_values:
     # Fix seed for reproducibility
