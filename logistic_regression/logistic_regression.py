@@ -66,6 +66,18 @@ def my_fake_delay():
     return n_clients
 
 
+def restart_time_in_queue(priority_queue):
+    """Restart the time in the priority queue to avoid precision issues."""
+    global current_time
+    new_priority_queue = queue.PriorityQueue()
+    while not priority_queue.empty():
+        client_time, client, delta_weights = priority_queue.get()
+        new_priority_queue.put(
+            (client_time - current_time, client, delta_weights))
+    current_time = 0
+    return new_priority_queue
+
+
 delays = [np.abs(np.random.normal()) for _ in range(n_clients)]
 
 
@@ -80,8 +92,6 @@ def get_client_delay(client=None):
 
     return delay
     # return my_fake_delay()
-
-
 
 
 def local_training(n_local_steps, lr, weights, data_client, labels_client):
@@ -135,6 +145,10 @@ def fill_server_buffer(
             priority_queue, global_model.copy(), client, n_local_steps, client_lr
         )
 
+        # Restart the time in the priority queue to avoid precision issues
+        if current_time > 100000:
+            priority_queue = restart_time_in_queue(priority_queue)
+
     # Update the global model with the server learning rate
     global_model += server_lr / server_buffer_size * aux_model
 
@@ -150,7 +164,7 @@ def run_experiment(n_local_steps):
     client_lr = 0.1
 
     # Define the number of global training steps
-    n_global_steps = 125000
+    n_global_steps = 200000
 
     # Define the server buffer size
     server_buffer_size = 10
