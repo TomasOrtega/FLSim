@@ -55,7 +55,7 @@ with open("results/logistic_regression_baseline.csv", "w", newline="") as csvfil
     writer.writerow([baseline_loss])
 
 # Number of clients
-n_clients = 1
+n_clients = 100
 
 # Split the dataset into n_clients parts for clients
 data_clients = np.array_split(data, n_clients)
@@ -121,7 +121,7 @@ def run_experiment(n_local_steps):
 
 
 # Run the experiment for different values of n_local_steps, while saving to a CSV file
-local_steps_values = [1, 4, 16]
+local_steps_values = [1, 2, 4, 8, 16]
 loss_values = []
 with open("results/logistic_regression_averaging.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")

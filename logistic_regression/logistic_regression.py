@@ -52,7 +52,7 @@ with open("results/logistic_regression_baseline.csv", "w", newline="") as csvfil
     writer.writerow([baseline_loss])
 
 # Number of clients
-n_clients = 50
+n_clients = 100
 
 # Split the dataset into n_clients parts for clients
 data_clients = np.array_split(data, n_clients)
@@ -64,18 +64,6 @@ current_time = 0
 
 def my_fake_delay():
     return n_clients
-
-
-def restart_time_in_queue(priority_queue):
-    """Restart the time in the priority queue to avoid precision issues."""
-    global current_time
-    new_priority_queue = queue.PriorityQueue()
-    while not priority_queue.empty():
-        client_time, client, delta_weights = priority_queue.get()
-        new_priority_queue.put(
-            (client_time - current_time, client, delta_weights))
-    current_time = 0
-    return new_priority_queue
 
 
 delays = [np.abs(np.random.normal()) for _ in range(n_clients)]
@@ -145,10 +133,6 @@ def fill_server_buffer(
             priority_queue, global_model.copy(), client, n_local_steps, client_lr
         )
 
-        # Restart the time in the priority queue to avoid precision issues
-        if current_time > 100000:
-            priority_queue = restart_time_in_queue(priority_queue)
-
     # Update the global model with the server learning rate
     global_model += server_lr / server_buffer_size * aux_model
 
@@ -157,14 +141,18 @@ def fill_server_buffer(
 
 
 def run_experiment(n_local_steps):
+    # Restart time
+    global current_time
+    current_time = 0
+
     # Use a priority queue for asynchrony
     priority_queue = queue.PriorityQueue()
 
     # Define the client learning rate
-    client_lr = 0.1
+    client_lr = 2
 
     # Define the number of global training steps
-    n_global_steps = 200000
+    n_global_steps = 250000
 
     # Define the server buffer size
     server_buffer_size = 10
@@ -179,7 +167,7 @@ def run_experiment(n_local_steps):
         )
 
     # Define a server learning rate
-    server_lr = 0.5
+    server_lr = 0.1
 
     # Initialize loss_values
     loss_values = []
@@ -200,7 +188,7 @@ def run_experiment(n_local_steps):
 
 
 # Run the experiment for different values of n_local_steps
-local_steps_values = [1, 2, 4, 8]
+local_steps_values = [1, 2, 4, 8, 16]
 loss_values = []
 with open("results/logistic_regression.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile, delimiter=",")

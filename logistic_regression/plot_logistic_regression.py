@@ -32,7 +32,7 @@ with open(baseline_filename, newline="") as csvfile:
     next(reader)  # Skip the header
     baseline_loss = float(next(reader)[0])
 
-plt.style.use('ieee')
+plt.style.use(['ieee', 'bright'])
 # Avoid Type 3 fonts for IEEE publications (switch to True)
 matplotlib.rcParams['text.usetex'] = True
 
@@ -45,17 +45,18 @@ if min_losses < baseline_loss:
 # Plot the results
 markers = [',', 'o', '^', '*', 'd', 's', 'X', 'P', '.', 6, 7]
 fig = plt.figure()
-for i in range(len(local_steps_values)):
+last_index = 65000
+for i in range(1, len(local_steps_values)):
     plt.plot(
-        np.array(loss_values[i]) - baseline_loss,
+        np.array(loss_values[i][:last_index]) - baseline_loss,
         label=f"{local_steps_values[i]} local steps",
-        marker=markers[i],
-        markevery=int(len(loss_values[i])/10),
+        # marker=markers[i],
+        # markevery=int(len(loss_values[i])/10),
         linestyle="solid",
     )
 plt.xlabel("Global model iteration")
 plt.ylabel(r"$f(x) - f^*$")
 plt.yscale("log")
-plt.legend()
+plt.legend(loc="upper right")
 plt.tight_layout()
 fig.savefig(filename[:-4] + ".pdf")
