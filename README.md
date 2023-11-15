@@ -1,4 +1,55 @@
-# Federated Learning Simulator (FLSim)
+# Federated Learning Simulator (FLSim) -- The QAFeL Fork
+
+This is a fork of the [FLSim](https://github.com/facebookresearch/FLSim) library. 
+It is used for the [QAFeL](https://arxiv.org/pdf/2308.00263.pdf) algorithm experiments.
+
+For most information, you are deferred to the original README.md that is at the bottom.
+
+## CelebA and CIFAR experiments
+For the experiments scripts and results, see folder `paper_experiments/`.
+The used configurations are in the corresponding `configs/` folders.
+All the runs are available, and can be analyzed with Tensorboard.
+The console output was also stored in the accompanying .txt files.
+
+To reproduce a desired configuration, run the `helper.sh` script with the desired configuration as argument.
+
+The iteration at which every run achieves the desired accuracy is stored in the .xlsx files in the `paper_experiments/` folder, which also contains the appendix plots.
+
+For the main body plot, run the `IEEEPlotFigConvergence.ipybn` notebook.
+
+
+## Logistic Regression experiments
+For the experiments scripts and results, see folder `logistic_regression/`.
+To reproduce the results, navigate to the folder and run the `logistic_regression.py` script.
+
+The results are stored in the `results/` folder, as well as the plots.
+
+An auxiliary script `plot_logistic_regression.py` is provided to plot the results.
+
+For a comparison, run `logistic_regression_averaging.py` which is a FedAVG custom implementation and gives analogous results for the synchronous case.
+The results for the synchronous case are the same as Fig. 6 in [Tighter Theory for Local SGD on Identical and Heterogeneous Data](https://proceedings.mlr.press/v108/bayoumi20a.html).
+
+# Citing
+
+If you use any of these codes, please cite the following papers:
+
+```
+@article{ortega2023asynchronous,
+  title={Asynchronous Federated Learning with Bidirectional Quantized Communications and Buffered Aggregation},
+  author={Ortega, Tomas and Jafarkhani, Hamid},
+  journal={arXiv preprint arXiv:2308.00263},
+  year={2023}
+}
+```
+
+and
+
+```
+TODO
+```
+
+
+# The original README.md from FLsim is below
 
 <p align="center">
   <img src="https://github.com/facebookresearch/FLSim/blob/main/assets/logo.png">

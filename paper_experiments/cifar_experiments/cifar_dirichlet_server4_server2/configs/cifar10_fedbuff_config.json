@@ -1,0 +1,53 @@
+{
+  "config": {
+    "trainer": {
+      "_base_": "base_async_trainer",
+      "epochs": 50,
+      "train_metrics_reported_per_epoch": 1,
+      "always_keep_trained_model": false,
+      "client": {
+        "epochs": 1,
+        "optimizer": {
+          "_base_": "base_optimizer_sgd",
+          "lr": 1.95e-4,
+          "momentum": 0
+        }
+      },
+      "channel": {
+        "_base_": "base_scalar_quantization_channel",
+        "report_communication_metrics": true,
+        "n_bits": 8,
+        "quantize_per_tensor": true
+      },
+      "aggregator": {
+        "_base_": "base_fed_avg_with_lr_hybrid_aggregator",
+        "lr": 40.9,
+        "momentum": 0.0,
+        "buffer_size": 10,
+        "hidden_state": true,        
+        "broadcast_channel_type": "qsgd",
+        "broadcast_channel_bits": 8
+      },
+      "training_event_generator": {
+        "_base_": "base_async_training_event_generator",
+        "training_start_time_distribution": {
+          "_base_": "base_constant_training_start_time_distribution",
+          "training_rate": 100
+        },
+        "duration_distribution_generator": {
+          "_base_": "base_per_user_half_normal_duration_distribution",
+          "training_duration_sd": 1,
+          "training_duration_min": 0
+        }
+      },
+      "report_train_metrics": true,
+      "eval_epoch_frequency": 0.1,
+      "do_eval": true,
+      "report_train_metrics_after_aggregation": true
+    },
+    "data": {
+      "local_batch_size": 10,
+      "num_users": 5000
+    }
+  }
+}
