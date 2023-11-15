@@ -58,28 +58,15 @@ n_clients = 100
 data_clients = np.array_split(data, n_clients)
 labels_clients = np.array_split(target, n_clients)
 
+# Set the current time for asynchronous training
 global current_time
 current_time = 0
 
-
-def my_fake_delay():
-    return n_clients
-
-
-delays = [np.abs(np.random.normal()) for _ in range(n_clients)]
-
-
 # Function to model client delays
-def get_client_delay(client=None):
-    delay = 0
 
-    if client is not None:
-        delay = delays[client]
-    else:
-        delay = np.abs(np.random.normal())
 
-    return delay
-    # return my_fake_delay()
+def get_client_delay():
+    return np.abs(np.random.normal())
 
 
 def local_training(n_local_steps, lr, weights, data_client, labels_client):
@@ -89,10 +76,10 @@ def local_training(n_local_steps, lr, weights, data_client, labels_client):
                                   labels_client, l2_strength)
     return weights
 
-# Function to train a client
-
 
 def train_client(priority_queue, weights, client, n_local_steps, lr):
+    """Train a client on a given number of local steps.	
+    """
     original_weights = weights.copy()
     data_client = data_clients[client]
     labels_client = labels_clients[client]
@@ -141,11 +128,11 @@ def fill_server_buffer(
 
 
 def run_experiment(n_local_steps):
-    # Restart time
+    # Restart time for each experiment -- avoids precision issues
     global current_time
     current_time = 0
 
-    # Use a priority queue for asynchrony
+    # Use a priority queue to model asynchrony
     priority_queue = queue.PriorityQueue()
 
     # Define the client learning rate
