@@ -57,6 +57,7 @@ for i in range(1, len(local_steps_values)):
 plt.xlabel("Global model iteration")
 plt.ylabel(r"$f(x) - f^*$")
 plt.yscale("log")
+plt.grid()
 plt.legend(loc="upper right")
 plt.tight_layout()
 fig.savefig(filename[:-4] + ".pdf")
