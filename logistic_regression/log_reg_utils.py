@@ -124,14 +124,15 @@ def loss_grad(weights, X, y, reg):
     res += reg * weights
     return res
 
-def plot_losses(local_steps_values, loss_values, baseline_loss):
+
+def plot_losses(legend_values, loss_values, baseline_loss, label="local steps"):
     # Plot the results
     markers = [',', 'o', '^', '*', 'd', 's', 'X', 'P', '.', 6, 7]
     fig = plt.figure()
-    for i in range(len(local_steps_values)):
+    for i in range(len(legend_values)):
         plt.plot(
             np.array(loss_values[i]) - baseline_loss,
-            label=f"{local_steps_values[i]} local steps",
+            label=f"{legend_values[i]} {label}",
             marker=markers[i],
             markevery=int(len(loss_values[i])/10),
             linestyle="solid",
@@ -141,3 +142,35 @@ def plot_losses(local_steps_values, loss_values, baseline_loss):
     plt.yscale("log")
     plt.legend()
     return fig
+
+
+def qsgd(input_vector, num_levels, norm_threshold=1e-10):
+    """
+    Quantize the input vector with a specified number of levels using QSGD.
+
+    Parameters:
+    - input_vector (numpy.ndarray): Input vector to be quantized.
+    - num_levels (int): Number of quantization levels.
+    - norm_threshold (float, optional): Small norm threshold. If the norm of the input_vector is below this threshold, return zero.
+
+    Returns:
+    - numpy.ndarray: Quantized vector.
+
+    The QSGD (Quantized Stochastic Gradient Descent) quantizer works by dividing the vector into quantization levels
+    and randomly deciding whether to round up to the next level based on the normalized magnitude of each element.
+
+    If the norm of the input vector is below the specified threshold, the function returns a zero vector.
+    """
+    norm_input_vector = np.linalg.norm(input_vector)
+
+    # Check if the norm is small, return zero
+    if norm_input_vector < norm_threshold:
+        return np.zeros_like(input_vector)
+
+    level_float = num_levels * np.abs(input_vector) / norm_input_vector
+    level_floor = np.floor(level_float)
+    is_next_level = np.random.rand(
+        input_vector.shape[0]) < (level_float - level_floor)
+    level = level_floor + is_next_level
+
+    return np.sign(input_vector) * norm_input_vector * level / num_levels
