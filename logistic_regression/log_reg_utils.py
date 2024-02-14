@@ -174,3 +174,63 @@ def qsgd(input_vector, num_levels, norm_threshold=1e-10):
     level = level_floor + is_next_level
 
     return np.sign(input_vector) * norm_input_vector * level / num_levels
+
+
+def top_k(input_vector, k):
+    """
+    Returns a vector with the top k elements of the input vector, setting all other elements to zero.
+
+    Parameters:
+    - input_vector (numpy.ndarray): Input vector.
+    - k (int): Number of top elements to retain.
+
+    Returns:
+    - numpy.ndarray: A vector where only the top k elements of the input vector are preserved.
+    """
+    topk_indices = np.argsort(np.abs(input_vector))[-k:]
+    output_vector = np.zeros_like(input_vector)
+    output_vector[topk_indices] = input_vector[topk_indices]
+    return output_vector
+
+
+cmdline_arg_abbr = {
+    'n_local_steps': 'ls',
+    'client_quantizer_type': 'c',
+    'client_quantizer_value': '',
+    'server_quantizer_type': 's',
+    'server_quantizer_value': '',
+}
+
+
+def config_dict_to_str(args_dict, record_keys=tuple(), leave_out_falsy=True, prefix=None, use_abbr=True,
+                       primary_delimiter='-', secondary_delimiter='_'):
+    """
+    Given a dictionary of cmdline arguments, return a string that identifies the training run.
+    :param args_dict:
+    :param record_keys: a tuple/list of keys that is a subset of keys in args_dict that will be used to form the runname
+    :param leave_out_falsy: whether to skip keys whose values evaluate to falsy (0, None, False, etc.)
+    :param use_abbr: whether to use abbreviations for long key name
+    :param primary_delimiter: the char to delimit different key-value paris
+    :param secondary_delimiter: the delimiter within each key or value string (e.g., when the value is a list of numbers)
+    :return:
+    """
+    kv_strs = []  # ['key1=val1', 'key2=val2', ...]
+
+    for key in record_keys:
+        val = args_dict[key]
+        if leave_out_falsy and not val:
+            continue
+        # e.g., 'num_layers: [10, 8, 10] -> 'num_layers=10_8_10'
+        if isinstance(val, (list, tuple)):
+            val_str = secondary_delimiter.join(map(str, val))
+        else:
+            val_str = str(val)
+        if use_abbr:
+            key = cmdline_arg_abbr.get(key, key)
+        kv_strs.append('%s=%s' % (key, val_str))
+
+    if prefix:
+        substrs = [prefix] + kv_strs
+    else:
+        substrs = kv_strs
+    return primary_delimiter.join(substrs)
