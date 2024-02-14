@@ -234,3 +234,27 @@ def config_dict_to_str(args_dict, record_keys=tuple(), leave_out_falsy=True, pre
     else:
         substrs = kv_strs
     return primary_delimiter.join(substrs)
+
+
+class AttrDict(dict):
+    # https://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
+def get_args_as_obj(args):
+    """
+    Get an object specifying options/hyper-params from a JSON file or a Python dict; simulates the result of argparse.
+    No processing is done if the input is of neither type (assumed to already be in an obj format).
+    :param args: either a dict-like object with attributes specifying the model, or the path to some args.json file
+    containing the args (which will be loaded and converted to a dict).
+    :return:
+    """
+    if isinstance(args, str):
+        import json
+        with open(args) as f:
+            args = json.load(f)
+    if isinstance(args, dict):
+        args = AttrDict(args)
+    return args

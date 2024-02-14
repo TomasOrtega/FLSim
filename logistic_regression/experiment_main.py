@@ -131,6 +131,8 @@ def get_runname(args):
 
 
 def run_experiment(args):
+    seed = args.seed
+    np.random.seed(seed)
 
     ##################### BEGIN: Good old bookkeeping #########################
     runname = get_runname(args)
@@ -170,12 +172,15 @@ def run_experiment(args):
     # Initialize the logistic regression weights
     weights = np.zeros(d + 1)
 
-    # Use a black-box optimizer to find the baseline loss, with display set to True to print the convergence log
-    baseline_loss = scipy.optimize.minimize(
-        loss, OPTIMAL_WEIGHTS,
-        args=(data, target, l2_strength),
-        options={"disp": True}
-    ).fun
+    # Set the baseline loss
+    baseline_loss = args.baseline_loss
+    if baseline_loss is None:
+        # Use a black-box optimizer to find the baseline loss
+        baseline_loss = scipy.optimize.minimize(
+            loss, OPTIMAL_WEIGHTS,
+            args=(data, target, l2_strength),
+            options={"disp": True}
+        ).fun
 
     n_clients = args.n_clients
     assert n_clients > 0, "Number of clients must be positive"
@@ -244,14 +249,36 @@ def run_experiment(args):
     else:
         save_results(loss_values, save_dir, runname)
         print(f"Results saved to {save_dir}")
-    return loss_values, baseline_loss, runname
+
+    plt.figure()
+    plt.plot(
+        [loss - baseline_loss for loss in loss_values],
+        label=runname,
+        marker='o',
+        markevery=int(len(loss_values)/10),
+        linestyle="solid",
+    )
+    plt.xlabel("Global model iteration")
+    plt.ylabel(r"$f(x) - f^*$")
+    plt.yscale("log")
+    plt.legend()
+    plt.savefig(f"{save_dir}/{runname}.png")
+    print(f"Plot saved to {save_dir}/{runname}.png")
+    if args.verbose:
+        plt.show()
+
+    return loss_values
 
 
 def save_results(loss_values, save_dir, runname):
+    # Save the loss values to a CSV file
     with open(f"{save_dir}/{runname}.csv", "w", newline="") as csvfile:
         writer = csv.writer(csvfile, delimiter=",")
         writer.writerow(["global_step", "loss"])
         writer.writerow([i, loss_values[i]] for i in range(len(loss_values)))
+
+    # Save the loss values to npy file
+    np.save(f"{save_dir}/loss_values.npy", loss_values)
 
 
 def parse_args(argv):
@@ -261,7 +288,7 @@ def parse_args(argv):
 
     # High-level options.
     parser.add_argument("--verbose", "-V", action="store_true",
-                        help="Report progress and metrics when training.")
+                        help="Plot progress and metrics after training.")
     parser.add_argument("--seed", type=int, default=0)
 
     # Specifying dataset
@@ -304,25 +331,7 @@ def parse_args(argv):
 
 
 def main(args):
-    seed = args.seed
-    np.random.seed(seed)
-    loss_values, baseline_loss, runname = run_experiment(args)
-    # Plot the results
-    plt.figure()
-    plt.plot(
-        [loss - baseline_loss for loss in loss_values],
-        label=runname,
-        marker='o',
-        markevery=int(len(loss_values)/10),
-        linestyle="solid",
-    )
-    plt.xlabel("Global model iteration")
-    plt.ylabel(r"$f(x) - f^*$")
-    plt.yscale("log")
-    plt.legend()
-    plt.savefig(f"{args.results_folder}/{runname}.png")
-    print(f"Plot saved to {args.results_folder}/{runname}.png")
-    plt.show()
+    loss_values = run_experiment(args)
 
 
 if __name__ == "__main__":
