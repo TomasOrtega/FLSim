@@ -19,16 +19,17 @@ For the main body plot, run the `IEEEPlotFigConvergence.ipybn` notebook.
 
 
 ## Logistic Regression experiments
-For the experiments scripts and results, see folder `logistic_regression/`.
-To reproduce the results, navigate to the folder and run the `logistic_regression.py` script.
+For the experiments scripts and results, navigate to folder `logistic_regression/`.
 
 The results are stored in the `results/` folder, as well as the plots.
 
 An auxiliary script `plot_logistic_regression.py` is provided to plot the results.
 
-For a comparison, run `logistic_regression_averaging.py` which is a FedAVG custom implementation and gives analogous results for the synchronous case.
+For a comparison with FedAVG, run `logistic_regression_averaging.py`, which gives analogous results for the synchronous case.
 The results for the synchronous case, shown in the image below, are the same as Fig. 6 in [Tighter Theory for Local SGD on Identical and Heterogeneous Data](https://proceedings.mlr.press/v108/bayoumi20a.html).
 ![Synchronous Logistic Regression](logistic_regression/results/logistic_regression_averaging.png)
+
+To obtain the QAFeL vs Naive quantization comparison plots, please run `QAFeLvsNaiveQSGD.py` and `QAFeLvsNaiveTopK.py`.
 
 For a general run, run `python experiment_main.py` with the desired configuration. See the help message below for the available options.
 
