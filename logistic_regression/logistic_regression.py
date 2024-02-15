@@ -139,7 +139,7 @@ def run_experiment(n_local_steps):
     client_lr = 2
 
     # Define the number of global training steps
-    n_global_steps = 250000
+    n_global_steps = 65000
 
     # Define the server buffer size
     server_buffer_size = 10

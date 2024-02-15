@@ -29,6 +29,9 @@ For a comparison with FedAVG, run `logistic_regression_averaging.py`, which give
 The results for the synchronous case, shown in the image below, are the same as Fig. 6 in [Tighter Theory for Local SGD on Identical and Heterogeneous Data](https://proceedings.mlr.press/v108/bayoumi20a.html).
 ![Synchronous Logistic Regression](logistic_regression/results/logistic_regression_averaging.png)
 
+The analogous results for the asynchronous case are in the figure below. For stability, the model was trained for 2.6 x more steps, and the learning rate was decreased. Note however, that each global model iteration in the asynchronous case only waits to receive 10 client updates, instead of the 100 in the synchronous case. Thus, the asynchronous case is notably faster in terms of wall-clock time in practice.
+![Asynchronous Logistic Regression](logistic_regression/results/logistic_regression.png)
+
 To obtain the QAFeL vs Naive quantization comparison plots, please run `QAFeLvsNaiveQSGD.py` and `QAFeLvsNaiveTopK.py`.
 
 For a general run, run `python experiment_main.py` with the desired configuration. See the help message below for the available options.
