@@ -3,282 +3,243 @@ import argparse
 import os
 import sys
 import queue
-from tqdm import tqdm  # Import tqdm
-from sklearn.datasets import load_svmlight_file
+import sys
 import urllib.request
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 import numpy as np
-import urllib.request
 import scipy.optimize
-from log_reg_utils import loss, loss_grad, OPTIMAL_WEIGHTS, plot_losses, qsgd, top_k
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_svmlight_file
+from log_reg_utils import loss, loss_grad, OPTIMAL_WEIGHTS, qsgd, top_k
 import yaml
 from absl import app
 from absl.flags import argparse_flags
 
 
-# Set the current time for asynchronous training
-global current_time
-current_time = 0
+class Experiment:
+    def __init__(self, args):
+        self.args = args
+        self.test_run = args.test_run
+        self.server_buffer_size = args.server_buffer_size
+        self.client_lr = args.client_lr
+        self.server_lr = args.server_lr
+        self.verbose = args.verbose
+        self.n_global_steps = args.n_global_steps
+        self.n_local_steps = args.n_local_steps
+        self.n_clients = args.n_clients
+        assert self.n_clients > 0, "Number of clients must be positive"
+        # Use a priority queue to model asynchrony
+        self.priority_queue = queue.PriorityQueue()
 
-# Function to model client delays
+        # Set the current time for asynchronous training
+        self.current_time = 0
+        np.random.seed(args.seed)
 
+        ##################### BEGIN: Good old bookkeeping #########################
+        self.runname = self.get_runname()
+        self.save_dir = os.path.join(args.results_folder, self.runname)
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+        # TODO -- use a logger
+        with open(os.path.join(self.save_dir, f"{self.runname}_args.yaml"), "w") as f:
+            yaml.dump(vars(args), f)
+        print(f"Running experiment {self.runname}")
+        print(f"Saving to {self.save_dir}")
+        ##################### END: Good old bookkeeping #########################
 
-def get_client_delay():
-    return np.abs(np.random.normal())
+        # Get dataset
+        # Download the LIBSVM mushroom dataset from the URL
+        url = "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/mushrooms"
+        urllib.request.urlretrieve(url, "mushroom.libsvm")
 
+        # Load the downloaded dataset
+        data, target = load_svmlight_file("mushroom.libsvm")
 
-def local_training(n_local_steps, lr, weights, data_client, labels_client, l2_strength):
-    for t in range(n_local_steps):
-        # Update the weights using gradient descent
-        weights -= lr * loss_grad(weights, data_client,
-                                  labels_client, l2_strength)
-    return weights
+        # Convert the sparse data to a dense matrix
+        data = data.toarray()
 
+        # Bring target to 0,1
+        target = target - 1
 
-def train_client(priority_queue, weights, client, n_local_steps, lr, data_clients, labels_clients, l2_strength, client_quantizer=None):
-    """Train a client on a given number of local steps.	
-    """
-    original_weights = weights.copy()
-    data_client = data_clients[client]
-    labels_client = labels_clients[client]
-    weights = local_training(n_local_steps, lr, weights,
-                             data_client, labels_client, l2_strength)
-    # Calculate the difference in weights
-    delta_weights = weights - original_weights
+        # Get problem dimensions
+        n, d = data.shape
 
-    if client_quantizer is not None:
-        delta_weights = client_quantizer(delta_weights)
+        # Set the L2 regularization strength
+        self.l2_strength = 1.0 / n
 
-    # Get the client delay
-    client_delay = get_client_delay()
+        # Add a bias term (intercept) to the data
+        data = np.hstack((np.ones((n, 1)), data))
 
-    priority_queue.put((current_time + client_delay, client, delta_weights))
+        # Define a global model
+        self.global_model = np.zeros(d + 1)
 
+        # Set the baseline loss
+        self.baseline_loss = args.baseline_loss
+        if self.baseline_loss is None:
+            # Use a black-box optimizer to find the baseline loss
+            self.baseline_loss = scipy.optimize.minimize(
+                loss, OPTIMAL_WEIGHTS,
+                args=(data, target, self.l2_strength),
+                options={"disp": True}
+            ).fun
 
-def fill_server_buffer(
-    priority_queue,
-    global_model,
-    n_local_steps,
-    client_lr,
-    server_lr,
-    server_quantizer,
-    client_quantizer,
-    data_clients,
-    labels_clients,
-    l2_strength,
-    server_buffer_size,
-    data,
-    target,
-    hidden_state=None
-):
+        # Split the dataset into n_clients parts for clients
+        self.data_clients = np.array_split(data, self.n_clients)
+        self.labels_clients = np.array_split(target, self.n_clients)
 
-    # Make an auxiliary model
-    aux_model = np.zeros_like(global_model)
-
-    # Fill the buffer
-    for _ in range(server_buffer_size):
-        global current_time
-
-        # Get the next model from the queue
-        current_time, client, client_delta = priority_queue.get()
-
-        # Update the auxiliary model with the client model
-        aux_model += client_delta
-
-        # Send client back to training
-        model_to_send = None
-        if hidden_state is not None:
-            model_to_send = hidden_state.copy()
-        elif server_quantizer is not None:
-            model_to_send = server_quantizer(global_model.copy())
+        # Initialize the hidden state
+        self.hidden_state = None
+        if args.algorithm_type == "QAFeL":
+            self.hidden_state = np.zeros_like(self.global_model)
+        elif args.algorithm_type == "FedBuff" or args.algorithm_type == "Naive":
+            self.hidden_state = None
         else:
-            model_to_send = global_model.copy()
+            raise NotImplementedError("Invalid algorithm type")
 
-        train_client(
-            priority_queue, model_to_send, client, n_local_steps, client_lr, data_clients, labels_clients, l2_strength, client_quantizer
+        self.client_quantizer = self.get_quantizer(
+            args.algorithm_type, args.client_quantizer_type, args.client_quantizer_value, d + 1)
+        self.server_quantizer = self.get_quantizer(
+            args.algorithm_type, args.server_quantizer_type, args.server_quantizer_value, d + 1)
+
+        self.data, self.target = data, target
+
+    def get_client_delay(self):
+        return np.abs(np.random.normal())
+
+    def local_training(self, n_local_steps, lr, weights, data_client, labels_client, l2_strength):
+        for t in range(n_local_steps):
+            # Update the weights using gradient descent
+            weights -= lr * \
+                loss_grad(weights, data_client, labels_client, l2_strength)
+        return weights
+
+    def train_client(self, weights, client, n_local_steps, lr):
+        """Train a client on a given number of local steps."""
+        original_weights = weights.copy()
+        data_client = self.data_clients[client]
+        labels_client = self.labels_clients[client]
+        weights = self.local_training(
+            n_local_steps, lr, weights, data_client, labels_client, self.l2_strength)
+        # Calculate the difference in weights
+        delta_weights = weights - original_weights
+
+        if self.client_quantizer is not None:
+            delta_weights = self.client_quantizer(delta_weights)
+
+        # Get the client delay
+        client_delay = self.get_client_delay()
+
+        self.priority_queue.put(
+            (self.current_time + client_delay, client, delta_weights))
+
+    def fill_server_buffer(self):
+        # Make an auxiliary model
+        aux_model = np.zeros_like(self.global_model)
+
+        # Fill the buffer
+        for _ in range(self.server_buffer_size):
+            # Get the next model from the queue
+            self.current_time, client, client_delta = self.priority_queue.get()
+
+            # Update the auxiliary model with the client model
+            aux_model += client_delta
+
+            # Send client back to training
+            model_to_send = None
+            if self.hidden_state is not None:
+                model_to_send = self.hidden_state.copy()
+            elif self.server_quantizer is not None:
+                model_to_send = self.server_quantizer(self.global_model.copy())
+            else:
+                model_to_send = self.global_model.copy()
+
+            self.train_client(model_to_send, client,
+                              self.n_local_steps, self.client_lr)
+
+        # Update the global model with the server learning rate
+        self.global_model += self.server_lr / self.server_buffer_size * aux_model
+
+        if self.hidden_state is not None:
+            # Update the hidden state with the server learning rate
+            self.hidden_state += self.server_quantizer(
+                (self.global_model - self.hidden_state).copy())
+
+        # Return the logistic loss (cost function) for the current weights
+        return loss(self.global_model, self.data, self.target, self.l2_strength)
+
+    def get_quantizer(self, algorithm_type, quantizer_type, quantizer_value, dim):
+        if algorithm_type == "FedBuff":
+            return None
+
+        if quantizer_type == "qsgd":
+            return lambda x: qsgd(x, quantizer_value)
+
+        if quantizer_type == "top_k":
+            return lambda x: top_k(x, int(quantizer_value / 100.0 * dim))
+
+        raise ValueError("Invalid quantizer type")
+
+    def get_runname(self):
+        from log_reg_utils import config_dict_to_str
+        args = self.args
+        algname = args.algorithm_type
+        runname = config_dict_to_str(vars(args), record_keys=('n_local_steps', 'client_quantizer_type',
+                                     'client_quantizer_value', 'server_quantizer_type', 'server_quantizer_value'), prefix=algname)
+        return runname
+
+    def run_experiment(self):
+        # Reset the global time
+        self.current_time = 0
+
+        # Add all clients to the priority queue
+        for client in range(self.n_clients):
+            self.train_client(self.global_model.copy(), client,
+                              self.n_local_steps, self.client_lr)
+
+        # Initialize loss_values
+        loss_values = []
+
+        # Use tqdm to create a progress bar
+        for t in tqdm(range(self.n_global_steps)):
+            loss_val = self.fill_server_buffer()
+            loss_values.append(loss_val)
+
+        if self.test_run:
+            print("Test run complete. Exiting.")
+            sys.exit(0)
+        else:
+            self.save_results(loss_values, self.save_dir, self.runname)
+            print(f"Results saved to {self.save_dir}")
+
+        plt.figure()
+        plt.plot(
+            [loss - self.baseline_loss for loss in loss_values],
+            label=self.runname,
+            marker='o',
+            markevery=int(len(loss_values)/10),
+            linestyle="solid",
         )
+        plt.xlabel("Global model iteration")
+        plt.ylabel(r"$f(x) - f^*$")
+        plt.yscale("log")
+        plt.legend()
+        plt.savefig(f"{self.save_dir}/{self.runname}.png")
+        print(f"Plot saved to {self.save_dir}/{self.runname}.png")
+        if self.args.verbose:
+            plt.show()
 
-    # Update the global model with the server learning rate
-    global_model += server_lr / server_buffer_size * aux_model
+        return loss_values
 
-    if hidden_state is not None:
-        # Update the hidden state with the server learning rate
-        hidden_state += server_quantizer((global_model - hidden_state).copy())
+    def save_results(self, loss_values, save_dir, runname):
+        # Save the loss values to a CSV file
+        with open(f"{save_dir}/{runname}.csv", "w", newline="") as csvfile:
+            writer = csv.writer(csvfile, delimiter=",")
+            writer.writerow(["global_step", "loss"])
+            writer.writerows([[i, loss_values[i]]
+                             for i in range(len(loss_values))])
 
-    # Return the logistic loss (cost function) for the current weights
-    return loss(global_model, data, target, l2_strength)
-
-
-def get_quantizer(algorithm_type, quantizer_type, quantizer_value, dim):
-    if algorithm_type == "FedBuff":
-        return None
-
-    if quantizer_type == "qsgd":
-        return lambda x: qsgd(x, quantizer_value)
-
-    if quantizer_type == "top_k":
-        return lambda x: top_k(x, int(quantizer_value / 100.0 * dim))
-
-    raise ValueError("Invalid quantizer type")
-
-
-def get_runname(args):
-    from log_reg_utils import config_dict_to_str
-    algname = args.algorithm_type
-    runname = config_dict_to_str(vars(args),
-                                 record_keys=('n_local_steps', 'client_quantizer_type', 'client_quantizer_value', 'server_quantizer_type', 'server_quantizer_value'), prefix=algname)
-    return runname
-
-
-def run_experiment(args):
-    seed = args.seed
-    np.random.seed(seed)
-
-    ##################### BEGIN: Good old bookkeeping #########################
-    runname = get_runname(args)
-    save_dir = os.path.join(args.results_folder, runname)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    # TODO -- use a logger
-    with open(os.path.join(save_dir, f"{runname}_args.yaml"), "w") as f:
-        yaml.dump(vars(args), f)
-    print(f"Running experiment {runname}")
-    print(f"Saving to {save_dir}")
-    ##################### END: Good old bookkeeping #########################
-
-    # Get dataset
-    # Download the LIBSVM mushroom dataset from the URL
-    url = "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/mushrooms"
-    urllib.request.urlretrieve(url, "mushroom.libsvm")
-
-    # Load the downloaded dataset
-    data, target = load_svmlight_file("mushroom.libsvm")
-
-    # Convert the sparse data to a dense matrix
-    data = data.toarray()
-
-    # Bring target to 0,1
-    target = target - 1
-
-    # Get problem dimensions
-    n, d = data.shape
-
-    # Set the L2 regularization strength
-    l2_strength = 1.0 / n
-
-    # Add a bias term (intercept) to the data
-    data = np.hstack((np.ones((n, 1)), data))
-
-    # Initialize the logistic regression weights
-    weights = np.zeros(d + 1)
-
-    # Set the baseline loss
-    baseline_loss = args.baseline_loss
-    if baseline_loss is None:
-        # Use a black-box optimizer to find the baseline loss
-        baseline_loss = scipy.optimize.minimize(
-            loss, OPTIMAL_WEIGHTS,
-            args=(data, target, l2_strength),
-            options={"disp": True}
-        ).fun
-
-    n_clients = args.n_clients
-    assert n_clients > 0, "Number of clients must be positive"
-
-    # Split the dataset into n_clients parts for clients
-    data_clients = np.array_split(data, n_clients)
-    labels_clients = np.array_split(target, n_clients)
-
-    # Restart time for each experiment -- avoids precision issues
-    global current_time
-    current_time = 0
-
-    # Initialize the hidden state
-    hidden_state = None
-    if args.algorithm_type == "QAFeL":
-        hidden_state = np.zeros(d + 1)
-    elif args.algorithm_type == "FedBuff" or args.algorithm_type == "Naive":
-        hidden_state = None
-    else:
-        raise NotImplementedError("Invalid algorithm type")
-
-    # Use a priority queue to model asynchrony
-    priority_queue = queue.PriorityQueue()
-
-    # Define a global model
-    global_model = np.zeros(d + 1)
-
-    client_quantizer = get_quantizer(
-        args.algorithm_type, args.client_quantizer_type, args.client_quantizer_value, d + 1)
-    server_quantizer = get_quantizer(
-        args.algorithm_type, args.server_quantizer_type, args.server_quantizer_value, d + 1)
-
-    # Add all clients to the priority queue
-    for client in range(args.n_clients):
-        train_client(
-            priority_queue, global_model.copy(
-            ), client, args.n_local_steps, args.client_lr, data_clients, labels_clients, l2_strength, client_quantizer
-        )
-
-    # Initialize loss_values
-    loss_values = []
-
-    # Use tqdm to create a progress bar
-    for t in tqdm(range(args.n_global_steps)):
-        loss_val = fill_server_buffer(
-            priority_queue,
-            global_model,
-            args.n_local_steps,
-            args.client_lr,
-            args.server_lr,
-            server_quantizer,
-            client_quantizer,
-            data_clients,
-            labels_clients,
-            l2_strength,
-            args.server_buffer_size,
-            data,
-            target,
-            hidden_state
-        )
-        loss_values.append(loss_val)
-
-    if args.test_run:
-        print("Test run complete. Exiting.")
-        sys.exit(0)
-    else:
-        save_results(loss_values, save_dir, runname)
-        print(f"Results saved to {save_dir}")
-
-    plt.figure()
-    plt.plot(
-        [loss - baseline_loss for loss in loss_values],
-        label=runname,
-        marker='o',
-        markevery=int(len(loss_values)/10),
-        linestyle="solid",
-    )
-    plt.xlabel("Global model iteration")
-    plt.ylabel(r"$f(x) - f^*$")
-    plt.yscale("log")
-    plt.legend()
-    plt.savefig(f"{save_dir}/{runname}.png")
-    print(f"Plot saved to {save_dir}/{runname}.png")
-    if args.verbose:
-        plt.show()
-
-    return loss_values
-
-
-def save_results(loss_values, save_dir, runname):
-    # Save the loss values to a CSV file
-    with open(f"{save_dir}/{runname}.csv", "w", newline="") as csvfile:
-        writer = csv.writer(csvfile, delimiter=",")
-        writer.writerow(["global_step", "loss"])
-        writer.writerow([i, loss_values[i]] for i in range(len(loss_values)))
-
-    # Save the loss values to npy file
-    np.save(f"{save_dir}/loss_values.npy", loss_values)
+        # Save the loss values to npy file
+        np.save(f"{save_dir}/loss_values.npy", loss_values)
 
 
 def parse_args(argv):
@@ -331,7 +292,8 @@ def parse_args(argv):
 
 
 def main(args):
-    loss_values = run_experiment(args)
+    experiment = Experiment(args)
+    loss_values = experiment.run_experiment()
 
 
 if __name__ == "__main__":
