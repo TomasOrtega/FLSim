@@ -1,5 +1,5 @@
 import numpy as np
-from experiment_main import run_experiment, get_runname
+from experiment_main import Experiment
 from log_reg_utils import get_args_as_obj
 import scienceplots
 import matplotlib
@@ -12,21 +12,27 @@ RESULTS_FOLDER = "results/QAFeLvsNaiveTopK"
 
 def plot_from_args(args, loss_values):
     args_obj = get_args_as_obj(args)
+    label = None
+    if args_obj.algorithm_type == "FedBuff":
+        label = "Unquantized"
+    else:
+        label = f"{args_obj.algorithm_type}, server {int(args_obj.server_quantizer_value)}\% top-k"
     plt.plot(
         [x - args_obj.baseline_loss for x in loss_values],
-        label=f"{args_obj.algorithm_type}, server {int(args_obj.server_quantizer_value)}\% top-k",
+        label=label,
         linestyle="solid",
     )
 
 
 def get_losses(args):
-    runname = get_runname(args)
+    experiment = Experiment(args)
+    runname = experiment.runname
     folder = f"{RESULTS_FOLDER}/{runname}"
     try:
         losses = np.load(f"{folder}/loss_values.npy")
         print(f"Loaded losses from {folder}")
     except:
-        losses = run_experiment(args)
+        losses = experiment.run_experiment()
     return losses
 
 
@@ -68,12 +74,29 @@ args2 = {
     "verbose": False,
 }
 
-args1 = get_args_as_obj(args1)
-args2 = get_args_as_obj(args2)
+args3 = {
+    "algorithm_type": "FedBuff",
+    "baseline_loss": 0.014484174216922262,
+    "client_lr": 2,
+    "client_quantizer_type": None,
+    "client_quantizer_value": None,
+    "n_clients": 100,
+    "n_global_steps": 10000,
+    "n_local_steps": 10,
+    "results_folder": RESULTS_FOLDER,
+    "seed": 0,
+    "server_buffer_size": 10,
+    "server_lr": 0.1,
+    "server_quantizer_type": None,
+    "server_quantizer_value": None,
+    "test_run": False,
+    "verbose": False,
+}
+
+args = [get_args_as_obj(x) for x in [args1, args2, args3]]
 
 # get losses from folder if it exists
-losses1 = get_losses(args1)
-losses2 = get_losses(args2)
+losses = [get_losses(x) for x in args]
 
 plt.style.use(['ieee', 'bright'])
 # Avoid Type 3 fonts for IEEE publications (switch to True)
@@ -83,8 +106,8 @@ matplotlib.rcParams['text.usetex'] = True
 markers = [',', 'o', '^', '*', 'd', 's', 'X', 'P', '.', 6, 7]
 fig = plt.figure()
 
-plot_from_args(args1, losses1)
-plot_from_args(args2, losses2)
+for (arg, loss) in zip(args, losses):
+    plot_from_args(arg, loss)
 
 plt.xlabel("Global model iteration")
 plt.ylabel(r"$f(x) - f^*$")
