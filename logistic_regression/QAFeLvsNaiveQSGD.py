@@ -13,14 +13,18 @@ RESULTS_FOLDER = "results/QAFeLvsNaiveQSGD"
 def plot_from_args(args, loss_values):
     args_obj = get_args_as_obj(args)
     label = None
+    linestyle = "solid"
+    thickness = 2
     if args_obj.algorithm_type == "FedBuff":
         label = "Unquantized"
+        thickness = 1
     else:
-        label = f"{args_obj.algorithm_type}, server {int(np.log2(args_obj.server_quantizer_value))}-bit {args_obj.server_quantizer_type}"
+        label = f"{args_obj.algorithm_type}, server {int(np.log2(args_obj.server_quantizer_value))}-bit QSGD"
     plt.plot(
         [x - args_obj.baseline_loss for x in loss_values],
         label=label,
-        linestyle="solid",
+        linestyle=linestyle,
+        linewidth=thickness,
     )
 
 

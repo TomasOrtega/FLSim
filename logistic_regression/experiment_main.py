@@ -170,6 +170,9 @@ class Experiment:
     def get_quantizer(self, algorithm_type, quantizer_type, quantizer_value, dim):
         if algorithm_type == "FedBuff":
             return None
+        
+        if quantizer_type is None:
+            return None
 
         if quantizer_type == "qsgd":
             return lambda x: qsgd(x, quantizer_value)

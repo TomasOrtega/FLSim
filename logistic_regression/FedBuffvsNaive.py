@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 import csv
 
 
-RESULTS_FOLDER = "results/QAFeLvsNaiveTopK"
+RESULTS_FOLDER = "results/FedBuffvsNaive"
 
 
 def plot_from_args(args, loss_values):
@@ -17,9 +17,13 @@ def plot_from_args(args, loss_values):
     thickness = 2
     if args_obj.algorithm_type == "FedBuff":
         label = "Unquantized"
-        thickness = 1
-    else:
+        # thickness = 1
+    elif args_obj.algorithm_type == "Naive" and args_obj.server_quantizer_type == "top_k":
         label = f"{args_obj.algorithm_type}, server {int(args_obj.server_quantizer_value)}\% top-k"
+    elif args_obj.algorithm_type == "Naive" and args_obj.server_quantizer_type == "qsgd":
+        label = f"{args_obj.algorithm_type}, server {int(np.log2(args_obj.server_quantizer_value))}-bit QSGD"
+    else:
+        raise ValueError("Unknown algorithm or quantizer type")
     plt.plot(
         [x - args_obj.baseline_loss for x in loss_values],
         label=label,
@@ -41,11 +45,11 @@ def get_losses(args):
 
 
 args1 = {
-    "algorithm_type": "QAFeL",
+    "algorithm_type": "Naive",
     "baseline_loss": 0.014484174216922262,
     "client_lr": 2,
-    "client_quantizer_type": "top_k",
-    "client_quantizer_value": 100,
+    "client_quantizer_type": None,
+    "client_quantizer_value": None,
     "n_clients": 100,
     "n_global_steps": 10000,
     "n_local_steps": 10,
@@ -53,8 +57,8 @@ args1 = {
     "seed": 0,
     "server_buffer_size": 10,
     "server_lr": 0.1,
-    "server_quantizer_type": "top_k",
-    "server_quantizer_value": 1,
+    "server_quantizer_type": "qsgd",
+    "server_quantizer_value": 8,
     "test_run": False,
     "verbose": False,
 }
@@ -119,4 +123,4 @@ plt.yscale("log")
 plt.grid()
 plt.legend(loc="upper right")
 plt.tight_layout()
-fig.savefig(RESULTS_FOLDER + "/QAFeLvsNaiveTopK.pdf")
+fig.savefig(RESULTS_FOLDER + "/FedBuffvsNaive.pdf")
