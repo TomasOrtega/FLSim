@@ -7,26 +7,19 @@
 
 """In this tutorial, we will train a binary sentiment classifier on LEAF's Sent140 dataset with FLSim.
 
-Before running this file, you need to download the dataset and partition the data by users. We
-provide the script get_data.sh for this purpose.
+Before running this file, you need to download the dataset, and partition the data by users. We
+provided the script get_data.sh for such task.
 
     Typical usage example:
 
     FedAvg
-    python3 sent140_example.py --config-file configs/sent140_config.json
+    python3 sent140_tutorial.py --config-file configs/sent140_config.json
 
     FedBuff + SGDM
-    python3 sent140_example.py --config-file configs/sent140_fedbuff_config.json
-
-    FedBuff + SGDM + quantization
-    python3 sent140_example.py --config-file configs/sent140_quantized_fedbuff_config.json
+    python3 sent140_tutorial.py --config-file configs/sent140_fedbuff_config.json
 """
-import itertools
 import json
 import re
-import string
-import unicodedata
-from typing import List
 
 import flsim.configs  # noqa
 import hydra  # @manual
@@ -37,63 +30,51 @@ from flsim.utils.config_utils import maybe_parse_json_config
 from flsim.utils.example_utils import (
     DataProvider,
     FLModel,
-    LEAFDataLoader,
     MetricsReporter,
+    LEAFDataLoader,
 )
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import Dataset
-from torchtext.vocab import GloVe
 
-class CharLSTM(nn.Module):
+
+class LSTMModel(nn.Module):
     def __init__(
-        self,
-        num_classes,
-        n_hidden,
-        num_embeddings,
-        embedding_dim,
-        max_seq_len,
-        dropout_rate,
-        glove,
+        self, seq_len, num_classes, embedding_dim, n_hidden, vocab_size, dropout_rate
     ):
-        super().__init__()
-        self.dropout_rate = dropout_rate
-        self.n_hidden = n_hidden
+        super(LSTMModel, self).__init__()
+        self.seq_len = seq_len
         self.num_classes = num_classes
-        
-        embedding_vectors = torch.zeros([num_embeddings + 1, embedding_dim], dtype=torch.float32)
-        embedding_vectors[:-1, :] = glove.vectors
-        self.embedding = nn.Embedding.from_pretrained(embedding_vectors)
-        self.lstm = nn.LSTM(
-            input_size=embedding_dim,
-            hidden_size=self.n_hidden,
-            num_layers=2,
+        self.n_hidden = n_hidden
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
+        self.dropout_rate = dropout_rate
+
+        self.embedding = nn.Embedding(self.vocab_size + 1, self.embedding_dim)
+        self.stacked_lstm = nn.LSTM(
+            self.embedding_dim,
+            self.n_hidden,
+            2,
             batch_first=True,
             dropout=self.dropout_rate,
         )
-        self.fc = nn.Linear(self.n_hidden, self.num_classes)
-        # self.fc = nn.Linear(self.n_hidden, 128)
-        # self.dropout1 = nn.Dropout(p=self.dropout_rate)
-        # self.pred = nn.Linear(128, self.num_classes)
-        # self.dropout2 = nn.Dropout(p=self.dropout_rate)
+        self.fc1 = nn.Linear(self.n_hidden, self.num_classes)
+        self.dropout = nn.Dropout(p=self.dropout_rate)
+        self.out = nn.Linear(128, self.num_classes)
 
-    def forward(self, x):
-        x = self.embedding(x)  # [B, S] -> [B, S, E]
-        out, _ = self.lstm(x)  # [B, S, E] -> [B, S, H]
-        out = out[:, -1, :] # slice lstm_out to just get output of last element of the input sequence
-        out = self.fc(out)
-        # out = self.fc(self.dropout1(out))  # [B, S, H] -> # [B, S, C]
-        # out = self.pred(self.dropout2(out))  # [B, S, H] -> # [B, S, C]
-        return out
+    def forward(self, features):
+        seq_lens = torch.sum(features != (self.vocab_size - 1), 1) - 1
+        x = self.embedding(features)
+        outputs, _ = self.stacked_lstm(x)
+        outputs = outputs[torch.arange(outputs.size(0)), seq_lens]
+        pred = self.fc1(self.dropout(outputs))
+        return pred
 
 
 class Sent140Dataset(Dataset):
-    def __init__(self, data_root, max_seq_len, glove, num_embeddings):
+    def __init__(self, data_root, max_seq_len):
         self.data_root = data_root
         self.max_seq_len = max_seq_len
-        self.stoi = glove.stoi # string to index dictionary
-        self.num_embeddings = num_embeddings
-
         with open(data_root, "r+") as f:
             self.dataset = json.load(f)
 
@@ -101,6 +82,8 @@ class Sent140Dataset(Dataset):
         self.targets = {}
 
         self.num_classes = 2
+        self.word2id = self.build_vocab()
+        self.vocab_size = len(self.word2id)
 
         # Populate self.data and self.targets
         for user_id, user_data in self.dataset["user_data"].items():
@@ -120,31 +103,20 @@ class Sent140Dataset(Dataset):
 
         return self.data[user_id], self.targets[user_id]
 
-    def line_to_words(self, line: str, max_seq_len: int):
-        words = re.findall(r"[\w']+|[.,!?;]", line)  # split phrase in words
-        # padding
-        if len(words) >= max_seq_len:
-            words = words[:max_seq_len]
-        else:
-            words = words + [""] * (max_seq_len - len(words))
-        return words
-    
-    def word_to_index(self, word):
-        if word in self.stoi:
-            return self.stoi[word]
-        elif word.lower() in self.stoi:
-            return self.stoi[word.lower()]
-        else:
-            return self.num_embeddings
-
-    def words_to_indices(self, words):
-        indices = [self.word_to_index(word) for word in words]
-        return indices
+    def build_vocab(self):
+        word2id = {}
+        for user_data in self.dataset["user_data"].values():
+            lines = [e[4] for e in user_data["x"]]
+            for line in lines:
+                line_list = self.split_line(line)
+                for word in line_list:
+                    if word not in word2id:
+                        word2id[word] = len(word2id)
+        return word2id
 
     def process_x(self, raw_x_batch):
         x_batch = [e[4] for e in raw_x_batch]
-        x_batch = [self.line_to_words(e, self.max_seq_len) for e in x_batch]
-        x_batch = [self.words_to_indices(e) for e in x_batch]
+        x_batch = [self.line_to_indices(e, self.max_seq_len) for e in x_batch]
         x_batch = torch.LongTensor(x_batch)
         return x_batch
 
@@ -152,20 +124,35 @@ class Sent140Dataset(Dataset):
         y_batch = [int(e) for e in raw_y_batch]
         return y_batch
 
+    def line_to_indices(self, line, max_words=25):
+        unk_id = len(self.word2id)
+        line_list = self.split_line(line)  # split phrase in words
+        indl = [
+            self.word2id[w] if w in self.word2id else unk_id
+            for w in line_list[:max_words]
+        ]
+        indl += [unk_id - 1] * (max_words - len(indl))
+        return indl
 
-def build_data_provider(data_config, glove, drop_last: bool = False, num_embeddings: int = 10000):
-    
+    def val_to_vec(self, size, val):
+        assert 0 <= val < size
+        vec = [0 for _ in range(size)]
+        vec[int(val)] = 1
+        return vec
+
+    def split_line(self, line):
+        return re.findall(r"[\w']+|[.,!?;]", line)
+
+
+def build_data_provider(data_config, drop_last=False):
+
     train_dataset = Sent140Dataset(
-        data_root="../../leaf/data/sent140/data/train/all_data_0_15_keep_1_train_8.json",
+        data_root="leaf/data/sent140/data/train/all_data_0_01_keep_1_train_9.json",
         max_seq_len=data_config.max_seq_len,
-        glove=glove,
-        num_embeddings=num_embeddings
     )
     test_dataset = Sent140Dataset(
-        data_root="../../leaf/data/sent140/data/test/all_data_0_15_keep_1_test_8.json",
+        data_root="leaf/data/sent140/data/test/all_data_0_01_keep_1_test_9.json",
         max_seq_len=data_config.max_seq_len,
-        glove=glove,
-        num_embeddings=num_embeddings
     )
 
     dataloader = LEAFDataLoader(
@@ -177,33 +164,29 @@ def build_data_provider(data_config, glove, drop_last: bool = False, num_embeddi
     )
 
     data_provider = DataProvider(dataloader)
-    return data_provider
+    return data_provider, train_dataset.vocab_size
 
 
 def main_worker(
     trainer_config,
     model_config,
     data_config,
-    use_cuda_if_available: bool = False,
-    distributed_world_size: int = 1,
-) -> None:
-    # Glove pre-trained embedding
-    glove_dim = 300
-    num_embeddings = 10000
-    glove = GloVe(name="6B", dim=glove_dim, max_vectors=num_embeddings) # as per FedBuff paper
-    data_provider = build_data_provider(data_config, glove, drop_last=False, num_embeddings=num_embeddings)
-    model = CharLSTM(
+    use_cuda_if_available=True,
+    distributed_world_size=1,
+):
+    data_provider, vocab_size = build_data_provider(data_config)
+
+    model = LSTMModel(
         num_classes=model_config.num_classes,
         n_hidden=model_config.n_hidden,
-        num_embeddings=num_embeddings,
-        embedding_dim=glove_dim,
-        max_seq_len=data_config.max_seq_len,
+        vocab_size=vocab_size,
+        embedding_dim=50,
+        seq_len=data_config.max_seq_len,
         dropout_rate=model_config.dropout_rate,
-        glove=glove
     )
+
     cuda_enabled = torch.cuda.is_available() and use_cuda_if_available
     device = torch.device(f"cuda:{0}" if cuda_enabled else "cpu")
-    # pyre-fixme[6]: Expected `Optional[str]` for 2nd param but got `device`.
     global_model = FLModel(model, device)
     if cuda_enabled:
         global_model.fl_cuda()
@@ -213,19 +196,19 @@ def main_worker(
 
     final_model, eval_score = trainer.train(
         data_provider=data_provider,
-        metrics_reporter=metrics_reporter,
-        num_total_users=data_provider.num_train_users(),
+        metric_reporter=metrics_reporter,
+        num_total_users=data_provider.num_users(),
         distributed_world_size=distributed_world_size,
     )
 
     trainer.test(
-        data_provider=data_provider,
-        metrics_reporter=MetricsReporter([Channel.TENSORBOARD, Channel.STDOUT]),
+        data_iter=data_provider.test_data(),
+        metric_reporter=MetricsReporter([Channel.STDOUT]),
     )
 
 
-@hydra.main(config_path=None, config_name="sent140_config")
-def run(cfg: DictConfig) -> None:
+@hydra.main(config_path=None, config_name="sent140_tutorial")
+def run(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
     trainer_config = cfg.trainer

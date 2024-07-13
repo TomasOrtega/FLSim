@@ -2,3 +2,7 @@
 flsim.egg-info/*
 
 logistic_regression/__pycache__/
+
+venv
+
+examples/runs
