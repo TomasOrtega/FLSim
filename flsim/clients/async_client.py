@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from typing import Any, Optional, Tuple
 
 from flsim.channels.base_channel import IdentityChannel
@@ -73,6 +75,8 @@ class AsyncClientDevice(DeviceState):
         self.training_schedule = training_schedule
         super().__init__(training_schedule)
 
+    # pyre-fixme[14]: `training_started` overrides method defined in `DeviceState`
+    #  inconsistently.
     def training_started(
         self, model_seqnum: int, init_model: Optional[IFLModel] = None
     ) -> None:

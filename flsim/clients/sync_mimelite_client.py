@@ -4,11 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 """This class defines a synchronous MIMELite Client for the MIME framework.
 Should be used in conjunction with the synchronous MIMELite server.
 Needs the server_opt_state to function
 """
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -51,8 +54,8 @@ class MimeLiteClient(Client):
         return delta, weight
 
     def _reload_server_state(self, optimizer):
-        state_dict = optimizer.state_dict()
-        state_dict["state"] = self.server_opt_state
+        state_dict = deepcopy(optimizer.state_dict())
+        state_dict["state"] = deepcopy(self.server_opt_state)
         optimizer.load_state_dict(state_dict)
         del state_dict
 

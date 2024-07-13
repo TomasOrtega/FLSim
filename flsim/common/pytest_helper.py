@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 """Contains helpers for Python PyTest tests.
 
 There is a list of helper utilities missing in PyTest.
@@ -97,7 +99,7 @@ def assertListEqual(l1: List, l2: List) -> None:
     assert l1 == l2
 
 
-class assertRaises(object):
+class assertRaises:
     def __init__(self, expected_exc: type) -> None:
         self.expected_exc = expected_exc
 

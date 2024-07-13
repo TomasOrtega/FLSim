@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 """In this tutorial, we will train a binary sentiment classifier on LEAF's Sent140 dataset with FLSim.
 
 Before running this file, you need to download the dataset, and partition the data by users. We
@@ -218,6 +220,10 @@ def run(cfg: DictConfig):
     main_worker(trainer_config, model_config, data_config)
 
 
-if __name__ == "__main__":
+def main() -> None:
     cfg = maybe_parse_json_config()
     run(cfg)
+
+
+if __name__ == "__main__":
+    main()  # pragma: no cover

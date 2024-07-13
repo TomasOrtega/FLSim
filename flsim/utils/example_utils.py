@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 # utils for use in the examples and tutorials
 
 import random
@@ -384,7 +386,7 @@ class FLModel(IFLModel):
         return self.model
 
     def fl_cuda(self) -> None:
-        self.model = self.model.to(self.device)  # pyre-ignore
+        self.model = self.model.to(self.device)
 
     def get_eval_metrics(self, batch) -> FLBatchMetrics:
         with torch.no_grad():

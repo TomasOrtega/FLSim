@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -184,6 +186,7 @@ class WeightedDPRoundReducerConfig(DPRoundReducerConfig):
     might as well throw updates from clients with smaller weights
     away as they will be drowned in noise.
     """
+
     _target_: str = fullclassname(WeightedDPRoundReducer)
     min_weight: float = 1e-6
     max_weight: float = float("inf")

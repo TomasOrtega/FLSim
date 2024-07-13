@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 
 from __future__ import annotations
 
@@ -108,7 +110,7 @@ class SyncMimeLiteServer(SyncServer):
 
         return Message(
             model=self.global_model,
-            server_opt_state=self._state_optimizer.state_dict()["state"],
+            server_opt_state=copy.deepcopy(self._state_optimizer.state_dict()["state"]),
         )
 
     def step(self):

@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 import abc
 import copy
 from typing import Any, Dict, List, Optional, Tuple
@@ -130,14 +132,18 @@ class FLMetricsReporter(IFLMetricsReporter, abc.ABC):
                     f"{timeline}, {metric.name}/{training_stage_in_str}: {value}"
                 )
             if Channel.TENSORBOARD in self.channels:
-                self.writer.add_scalars(
-                    f"{metric.name}/{training_stage_in_str}",
-                    value,
-                    timeline.global_round_num(),
-                ) if metric.is_compund else self.writer.add_scalar(
-                    f"{metric.name}/{training_stage_in_str}",
-                    value,
-                    timeline.global_round_num(),
+                (
+                    self.writer.add_scalars(
+                        f"{metric.name}/{training_stage_in_str}",
+                        value,
+                        timeline.global_round_num(),
+                    )
+                    if metric.is_compund
+                    else self.writer.add_scalar(
+                        f"{metric.name}/{training_stage_in_str}",
+                        value,
+                        timeline.global_round_num(),
+                    )
                 )
 
         if reset:

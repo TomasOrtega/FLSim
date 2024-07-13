@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 """In this tutorial, we will train an image classifier with FLSim to simulate a federated learning training environment.
 
 With this tutorial, you will learn the following key components of FLSim:
@@ -110,6 +112,10 @@ def run(cfg: DictConfig) -> None:
     )
 
 
-if __name__ == "__main__":
+def invoke_main() -> None:
     cfg = maybe_parse_json_config()
     run(cfg)
+
+
+if __name__ == "__main__":
+    invoke_main()  # pragma: no cover

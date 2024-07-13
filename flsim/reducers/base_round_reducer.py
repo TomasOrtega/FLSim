@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 """
 This file defines the concept of a base round aggregator for a
 federated learning setting. Also defines basic config,
@@ -63,9 +65,9 @@ class ReductionPrecision(IntEnum):
         return (
             torch.float64
             if self == ReductionPrecision.DOUBLE
-            else torch.float32
-            if self == ReductionPrecision.FLOAT
-            else None  # ReductionPrecision.DEFAULT
+            else (
+                torch.float32 if self == ReductionPrecision.FLOAT else None
+            )  # ReductionPrecision.DEFAULT
         )
 
 

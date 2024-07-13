@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +27,7 @@ class FixedPointConverter:
     The main class that is responsible for conversion between
     fixed point and floating point.
     """
+
     MAX_WIDTH_BITS = 8 * 8  # 8 bytes
     # code handles up to 7 bytes, due to division in overflow calc
 

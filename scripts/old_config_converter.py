@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 import argparse
 import copy
 import json
@@ -195,9 +197,9 @@ def _handle_active_user_selector(trainer):
     elif "diversity_reporting" == active_user_selector["type"].lower():
         active_user_selector["_base_"] = "base_diversity_reporting_user_selector"
     elif "diversity_statistics_reporting" == active_user_selector["type"].lower():
-        active_user_selector[
-            "_base_"
-        ] = "base_diversity_statistics_reporting_user_selector"
+        active_user_selector["_base_"] = (
+            "base_diversity_statistics_reporting_user_selector"
+        )
     elif "uniformlydiversity_maximizing_random" == active_user_selector["type"].lower():
         active_user_selector["_base_"] = "base_diversity_maximizing_user_selector"
 
@@ -529,7 +531,7 @@ def create_new_fl_config_from_old_json(
     return new_config
 
 
-if __name__ == "__main__":
+def main() -> None:
     warning_msg = """ NOTE:\n
     -----\n
     THIS CONFIG CONVERTER IS A HACK AND IS NOT FULLY TESTED. \n
@@ -567,3 +569,7 @@ if __name__ == "__main__":
     print(warning_msg)
     create_new_fl_config_from_old_json(args.old, args.new, args.flsim_example)
     print("Conversion successful")
+
+
+if __name__ == "__main__":
+    main()  # pragma: no cover

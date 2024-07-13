@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from typing import Type
 
 import numpy as np
@@ -40,9 +42,9 @@ class ConstantEventGenTestConfig:
     """
 
     num_examples_per_user = 4
-    training_duration_distribution_config: Type[
-        DurationDistributionConfig
-    ] = PerExampleGaussianDurationDistributionConfig
+    training_duration_distribution_config: Type[DurationDistributionConfig] = (
+        PerExampleGaussianDurationDistributionConfig
+    )
 
     training_rate = 1
     training_duration_mean = 1
@@ -69,9 +71,9 @@ class ConstantEventGenTestConfigPerUserGaussian(ConstantEventGenTestConfig):
     # training duration constant
     num_examples_per_user = 1
     training_duration_mean = 4
-    training_duration_distribution_config: Type[
-        DurationDistributionConfig
-    ] = PerUserGaussianDurationDistributionConfig
+    training_duration_distribution_config: Type[DurationDistributionConfig] = (
+        PerUserGaussianDurationDistributionConfig
+    )
 
 
 class PoissonEventGenTestConfig:
@@ -86,9 +88,9 @@ class PoissonEventGenTestConfig:
     """
 
     num_examples_per_user = 4
-    training_duration_distribution_config: Type[
-        DurationDistributionConfig
-    ] = PerExampleGaussianDurationDistributionConfig
+    training_duration_distribution_config: Type[DurationDistributionConfig] = (
+        PerExampleGaussianDurationDistributionConfig
+    )
     training_rate = 1
     training_duration_mean = 1 / 4
     training_duration_sd = 0
@@ -105,7 +107,7 @@ class PoissonEventGenTestConfigPerUserGaussian(PoissonEventGenTestConfig):
     """
 
     num_examples_per_user = 1
-    training_duration_distribution_config: Type[
-        DurationDistributionConfig
-    ] = PerUserGaussianDurationDistributionConfig
+    training_duration_distribution_config: Type[DurationDistributionConfig] = (
+        PerUserGaussianDurationDistributionConfig
+    )
     training_duration_mean = 1

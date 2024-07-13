@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 import torch
 from flsim.channels.message import Message
 from flsim.common.pytest_helper import assertEqual, assertRaises, assertTrue
@@ -378,7 +380,7 @@ class TestSecureAggregator:
 
         server_model = create_model_with_value(global_param)
         # freeze one of the two linear layers
-        for p in server_model.fc2.parameters():  # pyre-ignore[16]
+        for p in server_model.fc2.parameters():
             p.requires_grad = False
         server = self._create_server(SampleNet(server_model), fixedpoint=fixedpoint)
         clients = [create_model_with_value(client_param) for _ in range(num_clients)]
@@ -386,7 +388,7 @@ class TestSecureAggregator:
         clients = []
         for _ in range(num_clients):
             client_model = create_model_with_value(client_param)
-            for p in client_model.fc2.parameters():  # pyre-ignore[16]
+            for p in client_model.fc2.parameters():
                 p.requires_grad = False
             clients.append(client_model)
 

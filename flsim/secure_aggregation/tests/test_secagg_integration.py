@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 import torch
 from flsim.common.pytest_helper import assertEqual, assertNotEqual
 from flsim.secure_aggregation.secure_aggregator import FixedPointConfig
@@ -63,12 +65,14 @@ class TestSecureAggregationIntegration:
             epochs=epochs,
             user_epochs_per_round=1,
             do_eval=True,
-            server_config=SyncSecAggServerConfig(
-                aggregation_type=AggregationType.AVERAGE, fixedpoint=fixedpoint
-            )
-            if sec_agg_enable
-            else SyncServerConfig(
-                aggregation_type=AggregationType.AVERAGE,
+            server_config=(
+                SyncSecAggServerConfig(
+                    aggregation_type=AggregationType.AVERAGE, fixedpoint=fixedpoint
+                )
+                if sec_agg_enable
+                else SyncServerConfig(
+                    aggregation_type=AggregationType.AVERAGE,
+                )
             ),
         )
         sync_trainer.cfg.train_metrics_reported_per_epoch = (

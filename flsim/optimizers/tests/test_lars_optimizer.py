@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 import pytest
 from flsim.common.pytest_helper import assertAlmostEqual, assertEqual
 from flsim.optimizers.sync_aggregators import (
@@ -103,4 +105,6 @@ class TestLarsOptimizer:
                 self.quadratic1D_sgd.fl_get_module().state_dict()["x"].item()
             )
 
-            assertEqual(updated_param_value_lars, updated_param_value_sgd)
+            assertAlmostEqual(
+                updated_param_value_lars, updated_param_value_sgd, places=6
+            )

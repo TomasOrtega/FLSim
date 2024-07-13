@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from typing import Any, Dict, List, NamedTuple, Optional, OrderedDict, Tuple, Union
 from unittest.mock import MagicMock
 
@@ -393,7 +395,11 @@ def verify_gradients_equal(
                 f" Model 1: {p1.grad is not None}, Model 2: {p2.grad is not None}"
             )
         if (p1.grad is not None) and (p2.grad is not None):
+            # pyre-fixme[16]: `Optional` has no attribute `float`.
             if not torch.allclose(p1.grad.float(), p2.grad.float()):
+                # pyre-fixme[58]: `-` is not supported for operand types
+                #  `Optional[torch._tensor.Tensor]` and
+                #  `Optional[torch._tensor.Tensor]`.
                 summed_abs_diff = (p1.grad - p2.grad).abs().sum()
                 return (
                     f"Model 1, Model 2 mismatch. Parameter gradient: {name1}"

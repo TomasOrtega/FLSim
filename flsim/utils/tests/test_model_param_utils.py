@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 import collections
 import math
 
@@ -216,7 +218,7 @@ class TestFLModelParamUtils:
         self, model1: torch.nn.Module, model2: torch.nn.Module
     ) -> float:
         total_difference = 0.0
-        for (parameter1, parameter2) in zip(model1.parameters(), model2.parameters()):
+        for parameter1, parameter2 in zip(model1.parameters(), model2.parameters()):
             total_difference += torch.norm(parameter1.data - parameter2.data)
         return total_difference
 

@@ -5,6 +5,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from dataclasses import dataclass
 from enum import auto, Enum
 
@@ -32,6 +34,7 @@ class TrainingSchedule:
     r"""
     Class to represent a client training time duration
     """
+
     creation_time: float
     start_time: float
     end_time: float
