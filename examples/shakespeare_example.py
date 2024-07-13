@@ -235,6 +235,10 @@ def run(cfg: DictConfig) -> None:
     )
 
 
-if __name__ == "__main__":
+def main() -> None:
     cfg = maybe_parse_json_config()
     run(cfg)
+
+
+if __name__ == "__main__":
+    main()  # pragma: no cover
