@@ -153,7 +153,7 @@ class ShakespeareDataset(Dataset):
 
 def build_data_provider(data_config, drop_last=False):
 
-    MAIN_DIR = '/home/tomas/Documents/git/leaf/data/shakespeare'
+    MAIN_DIR = './../../leaf/data/shakespeare'
     train_dir = os.path.join(MAIN_DIR, 'data/train')
     TRAIN_DATA = os.path.join(train_dir, os.listdir(train_dir)[0])
 
@@ -200,7 +200,7 @@ def main_worker(
     )
 
     cuda_enabled = torch.cuda.is_available() and use_cuda_if_available
-    device = torch.device(f"cuda:{2}" if cuda_enabled else "cpu")
+    device = torch.device("cuda" if cuda_enabled else "cpu")
     global_model = FLModel(model, device)
     if cuda_enabled:
         global_model.fl_cuda()

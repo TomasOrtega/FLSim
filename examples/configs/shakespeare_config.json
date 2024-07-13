@@ -23,7 +23,7 @@
                 }
             },
             "users_per_round": 10,
-            "epochs": 1,
+            "epochs": 40,
             "train_metrics_reported_per_epoch": 10,
             "always_keep_trained_model": false,
             "eval_epoch_frequency": 1,
