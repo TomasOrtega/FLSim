@@ -5,7 +5,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""In this tutorial, we will train a binary sentiment classifier on LEAF's Sent140 dataset with FLSim.
+"""In this tutorial, we will train a next-char predictor on LEAF's Shakespeare dataset with FLSim.
 
 Before running this file, you need to download the dataset, and partition the data by users. We
 provided the script get_data.sh for such task.
@@ -13,10 +13,7 @@ provided the script get_data.sh for such task.
     Typical usage example:
 
     FedAvg
-    python3 sent140_tutorial.py --config-file configs/sent140_config.json
-
-    FedBuff + SGDM
-    python3 sent140_tutorial.py --config-file configs/sent140_fedbuff_config.json
+    CUDA_VISIBLE_DEVICES=2, python3 shakespeare.py --config-file configs/shakespeare.json
 """
 import os
 import json
