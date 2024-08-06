@@ -117,6 +117,9 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         by the aggregator, not by ASyncTrainer
         """
         return self.aggregator.hidden_state
+    
+    def client_init_model(self) -> IFLModel:
+        return self.hidden_state() if self.aggregator.qafel else self.global_model()
 
     @property
     def global_round(self):
@@ -134,7 +137,7 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         The actual training process doesn't start until on_training_end
         """
         client.training_started(
-            model_seqnum=self.aggregator.global_seqnum, init_model=self.hidden_state()
+            model_seqnum=self.aggregator.global_seqnum, init_model=self.client_init_model()
         )
 
     def train_and_update_global_model(self, client: AsyncClientDevice) -> None:

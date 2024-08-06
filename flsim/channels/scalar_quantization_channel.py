@@ -56,19 +56,29 @@ class ScalarQuantizationChannel(IdentityChannel):
             **kwargs,
         )
         super().__init__(**kwargs)
-        if not (1 <= self.cfg.n_bits <= 8):
+        
+        if not (1 <= self.cfg.n_bits_client_to_server <= 8):
             raise ValueError(
-                "ScalarQuantizationChannel expects n_bits between 1 and 8 (included)."
+                "ScalarQuantizationChannel expects n_bits_client_to_server between 1 and 8 (included)."
+            )
+        if not (1 <= self.cfg.n_bits_server_to_client <= 8):
+            raise ValueError(
+                "ScalarQuantizationChannel expects n_bits_server_to_client between 1 and 8 (included)."
             )
         if self.cfg.qscheme not in ("affine", "symmetric"):
             raise ValueError(
                 "ScalarQuantizationChannel qscheme should be either affine or symmetric."
             )
 
-        self.quant_min = -(2 ** (self.cfg.n_bits - 1))
-        self.quant_max = (2 ** (self.cfg.n_bits - 1)) - 1
-        self.observer, self.quantizer = self.get_observers_and_quantizers()
-        # qparams have to be necessarily shared in sec agg mode.
+        self.quant_min_client_to_server = -(2 ** (self.cfg.n_bits_client_to_server - 1))
+        self.quant_max_client_to_server = (2 ** (self.cfg.n_bits_client_to_server - 1)) - 1
+        
+        self.quant_min_server_to_client = -(2 ** (self.cfg.n_bits_server_to_client - 1))
+        self.quant_max_server_to_client = (2 ** (self.cfg.n_bits_server_to_client - 1)) - 1
+
+        self.observer_client_to_server, self.quantizer_client_to_server = self.get_observers_and_quantizers(self.cfg.n_bits_client_to_server)
+        self.observer_server_to_client, self.quantizer_server_to_client = self.get_observers_and_quantizers(self.cfg.n_bits_server_to_client)
+        
         self.use_shared_qparams = self.cfg.use_shared_qparams or self.cfg.sec_agg_mode
 
     def _calc_message_size_client_to_server(self, message: Message):
@@ -139,7 +149,10 @@ class ScalarQuantizationChannel(IdentityChannel):
                         )
         return message_size_bytes
 
-    def get_observers_and_quantizers(self):
+    def get_observers_and_quantizers(self, n_bits: int):
+        quant_min = -(2 ** (n_bits - 1))
+        quant_max = (2 ** (n_bits - 1)) - 1
+
         if self.cfg.quantize_per_tensor:
             qscheme = (
                 torch.per_tensor_symmetric
@@ -149,8 +162,8 @@ class ScalarQuantizationChannel(IdentityChannel):
             observer = MinMaxObserver(
                 dtype=torch.qint8,
                 qscheme=qscheme,
-                quant_min=self.quant_min,
-                quant_max=self.quant_max,
+                quant_min=quant_min,
+                quant_max=quant_max,
                 reduce_range=False,
             )
             quantizer = torch.quantize_per_tensor
@@ -163,41 +176,39 @@ class ScalarQuantizationChannel(IdentityChannel):
             observer = PerChannelMinMaxObserver(
                 dtype=torch.qint8,
                 qscheme=qscheme,
-                quant_min=self.quant_min,
-                quant_max=self.quant_max,
+                quant_min=quant_min,
+                quant_max=quant_max,
                 reduce_range=False,
                 ch_axis=0,
             )
             quantizer = torch.quantize_per_channel
         return observer, quantizer
 
-    def _quantize(self, name: str, x: torch.Tensor, message: Message) -> torch.Tensor:
-        """
-        Computes qparams and quantizes the tensor x.
-        If ``use_shared_qparams`` is True, quantizer uses qparams shared by the server in the message.
-        """
-
+    def _quantize(self, name: str, x: torch.Tensor, message: Message, mode: str) -> torch.Tensor:
+        observer = self.observer_client_to_server if mode == 'client_to_server' else self.observer_server_to_client
+        quantizer = self.quantizer_client_to_server if mode == 'client_to_server' else self.quantizer_server_to_client
+        
         # important to reset values, otherwise takes running min and max
-        self.observer.reset_min_max_vals()
+        observer.reset_min_max_vals()
 
         # forward through the observer to get scale(s) and zero_point(s)
-        _ = self.observer(x)
-        scale, zero_point = self.observer.calculate_qparams()
+        _ = observer(x)
+        scale, zero_point = observer.calculate_qparams()
         # use shared qparams from server
-        if self.use_shared_qparams:
+        if self.use_shared_qparams and mode == 'client_to_server':
             if message.qparams is None:
                 raise ValueError(
-                    "global_qparams is a necessary when shared qparams is enabled in channel."
+                    "global_qparams is necessary when shared qparams is enabled in channel."
                 )
             scale, zero_point = message.qparams[name]
 
         # Simulate quantization. Not a no-op since we lose precision when quantizing.
         if self.cfg.quantize_per_tensor:
-            xq = self.quantizer(x, float(scale), int(zero_point), dtype=torch.qint8)
+            xq = quantizer(x, float(scale), int(zero_point), dtype=torch.qint8)
         else:
             scale = scale.to(x.device)
             zero_point = zero_point.to(x.device)
-            xq = self.quantizer(x, scale, zero_point, axis=0, dtype=torch.qint8)
+            xq = quantizer(x, scale, zero_point, axis=0, dtype=torch.qint8)
         return xq
 
     @classmethod
@@ -214,7 +225,7 @@ class ScalarQuantizationChannel(IdentityChannel):
         new_state_dict = OrderedDict()
         for name, param in message.model_state_dict.items():
             if param.ndim > 1:
-                new_state_dict[name] = self._quantize(name, param.data, message)
+                new_state_dict[name] = self._quantize(name, param.data, message, mode='client_to_server')
             else:
                 new_state_dict[name] = param.data
 
@@ -245,16 +256,44 @@ class ScalarQuantizationChannel(IdentityChannel):
         message.model_state_dict = new_state_dict
         message.update_model_()
         return message
-
+    
+    def _on_client_after_reception(self, message: Message) -> Message:
+        """
+        We dequantize the weights we received from the server and do not dequantize the biases
+        since they have not been quantized in the first place. We copy the state dict since 
+        the tensor format changes.
+        """
+        new_state_dict = OrderedDict()
+        for name, param in message.model_state_dict.items():
+            if param.ndim > 1:
+                new_state_dict[name] = param.data.dequantize()
+            else:
+                new_state_dict[name] = param.data
+        message.model_state_dict = new_state_dict
+        message.update_model_()
+        return message
+    
     def _on_server_before_transmission(self, message: Message) -> Message:
+        """
+        Quantize the message before sending it from the server to the client.
+        """
         message.populate_state_dict()
+        new_state_dict = OrderedDict()
+        for name, param in message.model_state_dict.items():
+            if param.ndim > 1:
+                new_state_dict[name] = self._quantize(name, param.data, message, mode='server_to_client')
+            else:
+                new_state_dict[name] = param.data
+
+        message.model_state_dict = new_state_dict
         return message
 
 
 @dataclass
 class ScalarQuantizationChannelConfig(FLChannelConfig):
     _target_: str = fullclassname(ScalarQuantizationChannel)
-    n_bits: int = 8
+    n_bits_client_to_server: int = 8
+    n_bits_server_to_client: int = 8
     quantize_per_tensor: bool = True
     qscheme: str = "affine"
     use_shared_qparams: bool = False

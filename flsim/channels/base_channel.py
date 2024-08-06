@@ -190,4 +190,4 @@ class FLChannelConfig:
     _target_: str = fullclassname(IdentityChannel)
     _recursive_: bool = False
     # Whether communication metrics (between server and clients) should be reported
-    report_communication_metrics: bool = False
+    report_communication_metrics: bool = True

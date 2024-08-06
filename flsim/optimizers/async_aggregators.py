@@ -113,15 +113,15 @@ class AsyncAggregator:
 
         self.orig_lr = self.optimizer.param_groups[0]["lr"]
         self._global_model: IFLModel = global_model
-        self._hidden_state: IFLModel = FLModelParamUtils.clone(self._global_model)
-        self._quantization_state: IFLModel = FLModelParamUtils.clone(self._global_model)
-        self.server_to_broadcast_channel = IdentityChannel()
-        if self.cfg.hidden_state:
-            if self.cfg.broadcast_channel_type == "qsgd":
-                self.server_to_broadcast_channel = ScalarQuantizationChannel(n_bits=self.cfg.broadcast_channel_bits)
-            else:
-                self.server_to_broadcast_channel = SparseMaskChannel(sparsity_method = "topk", proportion_of_zero_weights = 0.9)
-            # TODO -- change for each experiment, with the identity channel we recover FedBuff (if there is no client quantization)
+        self.qafel = self.cfg.qafel
+        self._hidden_state: IFLModel = FLModelParamUtils.clone(self._global_model) if self.qafel else None
+        self.channel = channel or IdentityChannel()
+        # if self.cfg.hidden_state:
+        #     if self.cfg.broadcast_channel_type == "qsgd":
+        #         self.server_to_broadcast_channel = ScalarQuantizationChannel(n_bits=self.cfg.broadcast_channel_bits)
+        #     else:
+        #         self.server_to_broadcast_channel = SparseMaskChannel(sparsity_method = "topk", proportion_of_zero_weights = 0.9)
+        # TODO -- change for each experiment, with the identity channel we recover FedBuff (if there is no client quantization)
         self._reconstructed_grad: IFLModel = FLModelParamUtils.clone(self._global_model)
         # there is no concept of a round in async, hence round reducer is not tied to a round
         self.reducer = instantiate(
@@ -441,32 +441,35 @@ class FedBuffAggregator(AsyncAggregator):
         )
         self._step_with_modified_lr(lr_normalizer=1.0)
         self.num_clients_reported = 0
-        self._update_hidden_state()
+        if self.qafel:
+            self._update_hidden_state()
 
     def _update_hidden_state(self):
+        quantization_state = FLModelParamUtils.clone(self._global_model) # create a copy of the global model, which will be used as a dummy to store the quantized update
+        
         # get the difference between global state and hidden state
         FLModelParamUtils.subtract_model(
             minuend=self._global_model.fl_get_module(),
             subtrahend=self._hidden_state.fl_get_module(),
-            difference=self._quantization_state.fl_get_module(),
+            difference=quantization_state.fl_get_module(),
         )
 
-        # we will use _on_client_before_transmission and _on_server_after_reception to use the FLSim quantization and dequantization code, no point re-implementing good code.
-        message = Message(model=self._quantization_state)
-        state_dict = self._quantization_state.fl_get_module().state_dict()
+        # we will use channel to quantize the model
+        message = Message(model=quantization_state)
+        state_dict = quantization_state.fl_get_module().state_dict()
         model_size_bytes = sum(
             p.numel() * p.element_size() for (_, p) in state_dict.items()
         )
-        quantized_message = self.server_to_broadcast_channel._on_client_before_transmission(message)
-        bytes_broadcasted = self.server_to_broadcast_channel._calc_message_size_client_to_server(quantized_message) # so far, unused, should be reported eventually
+        quantized_message = self.channel._on_server_before_transmission(message)
+        bytes_broadcasted = self.channel._calc_message_size_server_to_client(quantized_message) # so far, unused, should be reported eventually
         print("\nBytes broadcasted: {}, original model size: {}\n".format(bytes_broadcasted, model_size_bytes))
-        dequantized_message = self.server_to_broadcast_channel._on_server_after_reception(quantized_message)
+        dequantized_message = self.channel._on_client_after_reception(quantized_message)
 
-        self._quantization_state = dequantized_message.model
+        quantization_state = dequantized_message.model
 
         FLModelParamUtils.add_model(
             model1=self._hidden_state.fl_get_module(),
-            model2=self._quantization_state.fl_get_module(),
+            model2=quantization_state.fl_get_module(),
             model_to_save=self._hidden_state.fl_get_module()
         )
 
@@ -565,7 +568,7 @@ class AsyncAggregatorConfig:
     )
     num_users_per_round: int = 1
     total_number_of_users: int = 10000000000
-    hidden_state: bool = False
+    qafel: bool = False
     broadcast_channel_type: str = "identity"
     broadcast_channel_bits: int = 8
 
