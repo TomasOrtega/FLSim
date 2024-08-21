@@ -6,8 +6,8 @@
         "_base_": "base_sync_server",
         "server_optimizer": {
           "_base_": "base_fed_avg_with_lr",
-          "lr": 0.7,
-          "momentum": 0.9
+          "lr": 1e3,
+          "momentum": 0.0
         },
         "aggregation_type": "WEIGHTED_AVERAGE",
         "active_user_selector": {
@@ -15,10 +15,10 @@
         }
       },
       "client": {
-        "epochs": 5,
+        "epochs": 1,
         "optimizer": {
           "_base_": "base_optimizer_sgd",
-          "lr": 0.01,
+          "lr": 2.6e-3,
           "momentum": 0
         }
       },
@@ -28,16 +28,22 @@
       "always_keep_trained_model": false,
       "eval_epoch_frequency": 1,
       "do_eval": true,
-      "report_train_metrics_after_aggregation": true
+      "report_train_metrics_after_aggregation": true,
+      "minimize_cuda_transfer": true
     },
     "data": {
+      "leaf_dir": "/scratch/ssd004/scratch/tomas/leaf/",
       "local_batch_size": 32,
-      "max_seq_len": 25
+      "max_seq_len": 25,
+      "vocab_dir": "/scratch/ssd004/scratch/tomas/leaf/models/sent140/embs.json"
     },
     "model": {
       "num_classes": 2,
       "n_hidden": 100,
-      "dropout_rate": 0
-    }
+      "dropout_rate": 0.1
+    },
+    "distributed_world_size": 1,
+    "use_cuda_if_available": true,
+    "log_dir": "/scratch/ssd004/scratch/tomas/runs/"
   }
 }

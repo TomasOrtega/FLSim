@@ -23,6 +23,7 @@ provided the script get_data.sh for such task.
 import json
 import re
 import os
+import random
 
 import flsim.configs  # noqa
 import hydra  # @manual
@@ -40,6 +41,9 @@ from flsim.utils.example_utils import (
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import Dataset
+
+from skopt import gp_minimize
+from skopt.space import Real
 
 from torchtext.vocab import GloVe
 glove = GloVe(name='6B', dim=300, max_vectors=10000)
@@ -199,8 +203,12 @@ def main_worker(
     use_cuda_if_available=True,
     distributed_world_size=1,
     log_dir=None,
+    data_provider=None,
+    vocab_size=None,
 ):
-    data_provider, vocab_size = build_data_provider(data_config)
+    # Print the configuration for debugging
+    print(OmegaConf.to_yaml(trainer_config))
+    print(OmegaConf.to_yaml(model_config))
 
     model = LSTMModel(
         num_classes=model_config.num_classes,
@@ -234,24 +242,54 @@ def main_worker(
         metrics_reporter=MetricsReporter(
             [Channel.TENSORBOARD, Channel.STDOUT], log_dir=log_dir),
     )
+    
+    print(eval_score)
+    return -eval_score['Accuracy']
+
+def set_seeds(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
 
 
 @hydra.main(config_path=None, config_name="sent140_tutorial")
 def run(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
-    trainer_config = cfg.trainer
-    model_config = cfg.model
-    data_config = cfg.data
+    set_seeds(cfg.seed)
 
-    main_worker(
-        trainer_config,
-        model_config,
-        data_config,
-        use_cuda_if_available=cfg.use_cuda_if_available,
-        distributed_world_size=cfg.distributed_world_size,
-        log_dir=cfg.log_dir,
-    )
+    data_provider, vocab_size = build_data_provider(cfg.data)
+
+    # Define the search space for hyperparameters
+    space = [
+        Real(1e-2, 1e2, prior='log-uniform', name='eta_l'),
+        Real(1e-2, 1e2, prior='log-uniform', name='eta_g'),
+    ]
+
+    def objective(params):
+        eta_l, eta_g = params
+        cfg.trainer.client.optimizer.lr = eta_l
+        cfg.trainer.aggregator.lr = eta_g
+        return main_worker(
+            cfg.trainer,
+            cfg.model,
+            cfg.data,
+            use_cuda_if_available=cfg.use_cuda_if_available, 
+            distributed_world_size=cfg.distributed_world_size,
+            log_dir=cfg.log_dir,
+            data_provider=data_provider,
+            vocab_size=vocab_size,
+        )
+
+    # Perform Bayesian optimization
+    res = gp_minimize(objective, space, n_calls=100, random_state=0, verbose=10)
+
+    print("Best hyperparameters found: ")
+    print("Learning Rate:", res.x[0])
+    print("Global Learning Rate:", res.x[1])
 
 
 def main() -> None:
